@@ -25,7 +25,7 @@ async def echo (bot: WhatsappBot, update: TextMessage, incoming: Incoming):
     return START
 
 async def main():
-    bot = WhatsappBot(verify_token="VERIFY_TOKEN", whatsapp_token="EAAP4fM5pvHEBOZCqmcyJVZCU8qMKriBUZCTdEPlS7C3uqNNczubAKavea9zDnUxDIsnJVGmGeiFi99apBRVHZBRFwRhSp46ZBRfidzlOKj8K8wa62pZBYQYJlZCEv1Yix89ZAe7eMpHdc1iFolZCzxMlto5LIBrw58mZBq4KpIG6ZBiVTdZAipa63BdWZAZBXCLstmCK9F")
+    bot = WhatsappBot(verify_token="VERIFY_TOKEN", whatsapp_token="WHATSAPP_TOKEN")
 
     bot.add_command(START, echo, "/echo")
 
