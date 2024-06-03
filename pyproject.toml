@@ -1,0 +1,29 @@
+[project]
+name = "python-whatsapp-bot"
+version = "0.1.0"
+requires-python = ">=3.8"
+authors = [{ name="Sergio Pires", email="sergiodanpires@gmail.com" }]
+description = "Pure python project for META Whatsapp Business API wrapper."
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["python", "whatsapp", "bot"]
+classifiers = [
+  "Programming Language :: Python"
+]
+
+[project.urls]
+repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-bot"
+
+[dependencies]
+flask = "^2.0.0"
+
+[test-dependencies]
+pytest = "^1.0.0"
+
+[dev-dependencies]
+flake8==4.0.1
+flake8==4.0.1
+Sphinx==4.4.0
+
+[tool.flake8]
+max-line-length = 100
