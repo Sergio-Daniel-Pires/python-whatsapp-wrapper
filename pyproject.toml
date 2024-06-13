@@ -16,14 +16,11 @@ repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-bot"
 
 [dependencies]
 flask = "^2.0.0"
+dataclasses_json = "0.6.6"
 
 [test-dependencies]
 pytest = "^1.0.0"
-
-[dev-dependencies]
-flake8==4.0.1
-flake8==4.0.1
-Sphinx==4.4.0
+pre-commit = "3.7.1"
 
 [tool.flake8]
 max-line-length = 100
