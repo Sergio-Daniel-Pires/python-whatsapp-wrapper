@@ -8,7 +8,6 @@ from dataclasses_json import config, dataclass_json
 
 USER_STATE = TypeVar("USER_STATE", str, int)
 CONVERSATION_CATEGORY = Literal["authentication", "marketing", "utility", "service", "referral_conversion"]
-
 class MessageTypes (str, Enum):
     ADDRESS: str = "address"
     AUDIO: str = "audio"
@@ -24,26 +23,57 @@ class MessageTypes (str, Enum):
     TEXT: str = "text"
     VIDEO: str = "video"
 
+@dataclass_json
 @dc.dataclass
 class InteractiveButtonItem:
     id: str = dc.field()
     title: str = dc.field()
 
+@dataclass_json
 @dc.dataclass
 class SectionItem:
     id: str = dc.field()
     title: str = dc.field()
     description: str = dc.field()
 
+@dataclass_json
 @dc.dataclass
 class Section:
     title: str = dc.field()
     rows: list[SectionItem] = dc.field(default_factory=list)
 
-    def __post_init__ (self):
-        self.rows = [
-            row if isinstance(row, SectionItem) else SectionItem(**row) for row in self.rows
-        ]
+@dataclass_json
+@dc.dataclass
+class DocumentMetadata:
+    mime_type: str = dc.field()
+    sha256: str = dc.field()
+    id: str = dc.field()
+    filename: str | None = dc.field(default=None)
+
+@dataclass_json
+@dc.dataclass
+class Reaction:
+    message_id: str = dc.field()
+    emoji: str = dc.field()
+
+@dataclass_json
+@dc.dataclass
+class AudioMetadata (DocumentMetadata):
+    voice: bool = dc.field(kw_only=True)
+
+@dataclass_json
+@dc.dataclass
+class Location:
+    latitude: float = dc.field()
+    "Location latitude in decimal degrees."
+    longitude: float = dc.field()
+    "Location longitude in decimal degrees."
+    address: str | None = dc.field(default=None)
+    "location address (Optional)"
+    name: str | None = dc.field(default=None)
+    "location name (Optional)"
+    url: str | None = dc.field(default=None)
+    "Location guide url (Optional)"
 
 @dataclass_json
 @dc.dataclass
@@ -53,6 +83,7 @@ class Context:
     id: str = dc.field()
     "Message id (Used for replies for example.)"
 
+@dataclass_json
 @dc.dataclass
 class Metadata:
     display_phone_number: str = dc.field()
@@ -60,9 +91,7 @@ class Metadata:
     phone_number_id: str = dc.field()
     "Phone number id. Need to be used to respond an message "
 
-    def to_json (self):
-        self.__dict__
-
+@dataclass_json
 @dc.dataclass
 class Contacts:
     wa_id: str = dc.field()
@@ -77,9 +106,7 @@ class Contacts:
         """
         return self.profile["name"]
 
-    def to_json (self):
-        self.__dict__
-
+@dataclass_json
 @dc.dataclass
 class Errors:
     code: int = dc.field()
@@ -97,6 +124,7 @@ class Errors:
         """
         return self.error_data["details"]
 
+@dataclass_json
 @dc.dataclass
 class Conversation:
     """
@@ -106,7 +134,7 @@ class Conversation:
     "Conversation ID"
     origin: dict[str, str] = dc.field()
     "Conversation category"
-    expiration_timestamp: int = dc.field()
+    expiration_timestamp: str | None = dc.field(default=None)
     "Date when the conversation expires"
 
     @property
@@ -126,6 +154,7 @@ class Conversation:
         """
         return self.origin["type"]
 
+@dataclass_json
 @dc.dataclass
 class Pricing:
     category: CONVERSATION_CATEGORY = dc.field()
@@ -135,6 +164,7 @@ class Pricing:
     billable: bool = dc.field(default=None)
     "False if it's a free message entry point"
 
+@dataclass_json
 @dc.dataclass
 class Statuses:
     """
@@ -157,7 +187,7 @@ class Statuses:
     "Message status Date"
     recipient_id: str = dc.field()
     "Customer's WhatsApp ID. Can be used to respond a customer (Doesn't match with phone number)"
-    biz_opaque_callback_data: str = dc.field(default=None)
+    biz_opaque_callback_data: str | None = dc.field(default=None)
     "Arbitrary string"
     conversation: Conversation = dc.field(default=None)
     "Conversation info"
@@ -165,12 +195,6 @@ class Statuses:
     "List of objects describing errors"
     pricing: Pricing = dc.field(default=None)
     "Pricing information"
-
-    def __post_init__ (self):
-        self.errors = [ Errors(**error) for error in self.errors ]
-
-        if self.pricing is not None:
-            self.pricing = Pricing(**self.pricing)
 
 @dataclass_json
 @dc.dataclass
@@ -183,7 +207,7 @@ class ReceivedMessage (ABC):
     "Message Type (Specified in MessageTypes)"
     from_: str = dc.field(metadata=config(field_name="from"))
     "Customer whatsapp number"
-    context: Context = dc.field(default=None)
+    context: Context | None = dc.field(default=None)
     "Context object, if customer has replied a message"
 
     def __post_init__ (self):
@@ -211,11 +235,8 @@ class ReceivedMessage (ABC):
             #         f"For {str(self.type).upper()} type, 'filename' is not supported."
             #     )
 
-        if self.context is not None:
-            self.context = Context.from_dict(self.context)
-
     @classmethod
-    def default_body_to_reply (
+    def default_body_to_send (
         cls, to: str, msg_type: MessageTypes, context: Context | dict[str, str] = None,
     ) -> dict[str, Any]:
         default_body = {
@@ -224,92 +245,14 @@ class ReceivedMessage (ABC):
         }
 
         if context is not None:
-            default_body["context"] = context if isinstance(context, dict) else context.to_json()
+            default_body["context"] = context.to_json()
 
         return default_body
 
     @classmethod
     @abstractmethod
-    def to_reply (cls, to: str, *args, **kwargs) -> dict[str, str]:
+    def to_send (cls, to: str, *args, **kwargs) -> dict[str, str]:
         ...
-
-
-@dataclass_json
-@dc.dataclass
-class Incoming:
-    messaging_product: Literal["whatsapp"] = dc.field()
-    "Product used to send the message. (Always whatsap)"
-    metadata: Metadata = dc.field()
-    "Business account webhook metadata"
-    contacts: list[Contacts] = dc.field(default_factory=list)
-    "Information about who sents the message"
-    errors: list[Errors] = dc.field(default_factory=list)
-    "Objects that describes errors"
-    messages: list[ReceivedMessage] = dc.field(default_factory=list)
-    "Triggered when a customer updates their profile information or sends a message"
-    statuses: list[Statuses] = dc.field(default_factory=list)
-    "Triggered when a message is sent or delivered to a customer or he reads the message"
-
-    _message_idx: int = dc.field(default=0)
-    "Message index that will be handled now"
-
-    def __post_init__ (self):
-        self.metadata = Metadata(**self.metadata)
-        self.contacts = [ Contacts(**contact) for contact in self.contacts ]
-        self.errors = [ Errors(**error) for error in self.errors ]
-        self.statuses = [ Statuses(**status) for status in self.statuses ]
-
-        converted_messages = []
-
-        for message in self.messages:
-            msg_type = message["type"]
-            msg_object = RECEIVED_MSG_TYPE_TO_OBJECT.get(msg_type)
-
-            if msg_object is None:
-                logging.error(f"Message {msg_type} are not implemented yet.")
-                continue
-
-            # TODO remove this manual fix
-            if "from" in message:
-                message["from_"] = message.pop("from")
-
-            converted_messages.append(msg_object(**message))
-
-        self.messages = converted_messages
-
-    @property
-    def message (self) -> ReceivedMessage:
-        "Message that will be handled now (Selected by _message_idx)"
-        return self.messages[self._message_idx] if self.messages else None
-
-    @message.setter
-    def message (self, value: ReceivedMessage):
-        raise ValueError("Can't set message directly. Use '_message_idx' instead.")
-
-    def to_send (self):
-        output = {
-            "messaging_product": self.messaging_product, "metadata": self.metadata.to_json()
-        }
-
-        for attr_key in ( "contacts", "errors", "statuses" ):
-            attr_value: list[Contacts | Errors | Statuses] = getattr(self, attr_key, None)
-
-            if attr_value is None:
-                continue
-
-            output[attr_key] = [ attr.to_json() for attr in attr_value ]
-
-        return output
-
-@dc.dataclass
-class WhatsappChanges:
-    id: str
-    "Whatsapp business ID"
-    changes: list[Incoming]
-    "Changed objects array"
-
-    def __post_init__ (self):
-        self.changes = [ Incoming(**change["value"]) for change in self.changes ]
 
 @dataclass_json
 @dc.dataclass
@@ -322,7 +265,34 @@ class AddressMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class AudioMessage (ReceivedMessage):
-    ...
+    audio: AudioMetadata = dc.field(kw_only=True)
+    link: str | None = dc.field(default=None, kw_only=True)
+    caption: str | None = dc.field(default=None, kw_only=True)
+
+    @classmethod
+    def to_send (
+        cls, to: str, audio_id: str = None, link: str = None
+    ) -> dict[str, str]:
+        output_msg = cls.default_body_to_send(to, MessageTypes.AUDIO)
+
+        if audio_id:
+            output_msg["id"] = audio_id
+
+        elif link:
+            output_msg["link"] = link
+
+        else:
+            raise ValueError("Either 'audio_id' or 'link' must be provided.")
+
+        return output_msg
+
+    @property
+    def audio_id (self) -> str:
+        return self.audio["id"]
+
+    @audio_id.setter
+    def audio_id (self, value: str):
+        raise ValueError("Can't set 'audio_id' directly. Use 'audio['id']' instead.")
 
 @dataclass_json
 @dc.dataclass
@@ -332,34 +302,66 @@ class ContactMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class DocumentMessage (ReceivedMessage):
-    ...
+    document: DocumentMetadata = dc.field(kw_only=True)
+
+    @classmethod
+    def to_send (
+        cls, to: str, document_id: str = None, link: str = None,
+        caption: str = None, filename: str = None
+    ) -> dict[str, str]:
+        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT)
+
+        if document_id:
+            output_msg["id"] = document_id
+
+        elif link:
+            output_msg["link"] = link
+
+        else:
+            raise ValueError("Either 'document_id' or 'link' must be provided.")
+
+        if caption:
+            output_msg["caption"] = caption
+
+        if filename:
+            output_msg["filename"] = filename
+
+        return output_msg
 
 @dataclass_json
 @dc.dataclass
 class ImageMessage (ReceivedMessage):
-    image: dict[str, str] = dc.field(kw_only=True)
-    link: str = dc.field(default=None, kw_only=True)
-    caption: str = dc.field(default=None, kw_only=True)
+    image: DocumentMetadata = dc.field(kw_only=True)
+    link: str | None = dc.field(default=None, kw_only=True)
+    caption: str | None = dc.field(default=None, kw_only=True)
 
     @classmethod
-    def to_reply (
+    def to_send (
         cls, to: str, image_id: str = None, link: str = None, caption: str = None
     ) -> dict[str, str]:
-        if image_id is None and link is None:
-            raise ValueError("media_id and media_link can't be both None.")
-
-        output_msg = cls.default_body_to_reply(to, MessageTypes.IMAGE)
+        output_msg = cls.default_body_to_send(to, MessageTypes.IMAGE)
 
         if image_id:
             output_msg["id"] = image_id
 
-        if link:
+        elif link:
             output_msg["link"] = link
+
+        else:
+            raise ValueError("Either 'image_id' or 'link' must be provided.")
 
         if caption:
             output_msg["caption"] = caption
 
         return output_msg
+
+    @property
+    def image_id (self) -> str:
+        return self.image["id"]
+
+    @image_id.setter
+    def image_id (self, value: str):
+        raise ValueError("Can't set 'image_id' directly. Use 'image['id']' instead.")
 
 class ButtonUrlMessage (ReceivedMessage):
     ...
@@ -378,15 +380,9 @@ class InteractiveListMessage:
 
     sections: list[Section] = dc.field(kw_only=True)
 
-    def __post_init__ (self):
-        self.sections = [
-            section if isinstance(section, Section) else Section(**section)
-            for section in self.sections
-        ]
-
-    def to_reply (self, to: str) -> dict[str, str]:
+    def to_send (self, to: str) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_reply(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
             "interactive": {
                 "type": "list",
                 "header": { "type": "text", "text": self.header },
@@ -410,14 +406,14 @@ class InteractiveListReply (ReceivedMessage):
 
     @property
     def list_reply(self) -> SectionItem:
-        return SectionItem(**self.interactive["list_reply"])
+        return SectionItem.from_dict(self.interactive["list_reply"])
 
     @list_reply.setter
     def list_reply(self, value: SectionItem):
         raise ValueError("Can't set list_reply directly. Use 'interactive' instead.")
 
     @classmethod
-    def to_reply (cls, to: str, *args, **kwargs):
+    def to_send (cls, to: str, *args, **kwargs):
         raise ValueError(
             "'InteractiveListReply' can't be used to send messages. "
             "Use 'InteractiveListMessage' instead."
@@ -425,22 +421,16 @@ class InteractiveListReply (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
-class ReplyButtonsMessage:
+class InteractiveButtonsMessage:
     header: str = dc.field(kw_only=True) # TODO add support for emoji, markdown etc
     body: str = dc.field(kw_only=True)
     footer: str = dc.field(kw_only=True)
 
     buttons: list[InteractiveButtonItem] = dc.field(kw_only=True)
 
-    def __post_init__ (self):
-        self.sections = [
-            section if isinstance(section, Section) else Section(**section)
-            for section in self.sections
-        ]
-
-    def to_reply (self, to: str,) -> dict[str, str]:
+    def to_send (self, to: str,) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_reply(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
             "interactive": {
                 "type": "button",
                 "header": { "type": "text", "text": self.header },
@@ -456,7 +446,7 @@ class ReplyButtonsMessage:
 
 @dataclass_json
 @dc.dataclass
-class ReplyButtonsReply (ReceivedMessage):
+class InteractiveButtonsReply (ReceivedMessage):
     interactive: dict[str, str] = dc.field(kw_only=True)
 
     button_reply: SectionItem = dc.field(init=False)
@@ -467,14 +457,14 @@ class ReplyButtonsReply (ReceivedMessage):
 
     @property
     def button_reply(self) -> SectionItem:
-        return SectionItem(**self.interactive["button_reply"])
+        return SectionItem.from_dict(self.interactive["button_reply"])
 
     @button_reply.setter
     def button_reply(self, value: SectionItem):
         raise ValueError("Can't set button_reply directly. Use 'interactive' instead.")
 
     @classmethod
-    def to_reply (cls, to: str, *args, **kwargs):
+    def to_send (cls, to: str, *args, **kwargs):
         raise ValueError(
             "'InteractiveListReply' can't be used to send messages. "
             "Use 'InteractiveListMessage' instead."
@@ -483,7 +473,22 @@ class ReplyButtonsReply (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class LocationMessage (ReceivedMessage):
-    ...
+    location: Location = dc.field(kw_only=True)
+
+    @classmethod
+    def to_send(
+        cls, to: str, latitude: str, longitude: str, address: str = None, name: str = None
+    ):
+        output_msg = cls.default_body_to_send(to, MessageTypes.LOCATION)
+        output_msg["location"] = { "latitude": latitude, "longitude": longitude }
+
+        if address:
+            output_msg["location"]["address"] = address
+
+        if name:
+            output_msg["location"]["name"] = name
+
+        return output_msg
 
 @dataclass_json
 @dc.dataclass
@@ -493,15 +498,13 @@ class AskForLocationMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class ReactMessage (ReceivedMessage):
-    reaction: dict[str, str] = dc.field(kw_only=True)
-    message_id: str = dc.field(kw_only=True)
-    emoji: str = dc.field(kw_only=True)
+    reaction: Reaction = dc.field(kw_only=True)
 
     @classmethod
-    def to_reply (
+    def to_send (
         cls, to: str, message_id: str, emoji: str
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_reply(to, MessageTypes.REACTION)
+        output_msg = cls.default_body_to_send(to, MessageTypes.REACTION)
         output_msg["reaction"] = { "message_id": message_id, "emoji": emoji }
 
         return output_msg
@@ -522,11 +525,11 @@ class TextMessage (ReceivedMessage):
         return self.text["body"]
 
     @classmethod
-    def to_reply (cls, to: str, message: str, preview_url: bool = None) -> dict[str, str]:
-        output_msg = cls.default_body_to_reply(to, MessageTypes.TEXT)
+    def to_send (cls, to: str, message: str, preview_url: bool = None) -> dict[str, str]:
+        output_msg = cls.default_body_to_send(to, MessageTypes.TEXT)
         output_msg["text"] = { "body": message }
 
-        if preview_url is not None:
+        if preview_url:
             output_msg["text"]["preview_url"] = True
 
         return output_msg
@@ -534,15 +537,150 @@ class TextMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class VideoMessage (ReceivedMessage):
-    ...
+    """
+    Video message. Contains information about sent and received videos.
+    """
+    video: dict[str, str] = dc.field(kw_only=True)
+    "Dictionary containing information about the video (id or link)."
+    link: str = dc.field(default=None, kw_only=True)
+    "Video link, if available."
+    caption: str = dc.field(default=None, kw_only=True)
+    "Video caption, if available."
+
+    @classmethod
+    def to_send (
+        cls, to: str, video_id: str = None, link: str = None, caption: str = None
+    ) -> dict[str, str]:
+        """
+        Creates a video reply message.
+
+        :param to: Recipient's phone number.
+        :param video_id: Video ID, if available.
+        :param link: Video link, if available.
+        :param caption: Video caption, if available.
+        :return: Dictionary representing the reply message.
+        """
+        if video_id is None and link is None:
+            raise ValueError("video_id and link can't both be None.")
+
+        output_msg = cls.default_body_to_send(to, MessageTypes.VIDEO)
+
+        if video_id:
+            output_msg["video"] = {"id": video_id}
+
+        if link:
+            output_msg["video"] = {"link": link}
+
+        if caption:
+            output_msg["video"]["caption"] = caption
+
+        return output_msg
 
 @dataclass_json
 @dc.dataclass
 class ReadMessage (ReceivedMessage):
     ...
 
+MESSAGE_TYPE = TypeVar("MESSAGE_TYPE", TextMessage, ReactMessage)
+
 RECEIVED_MSG_TYPE_TO_OBJECT: dict[str, ReceivedMessage] = {
-    MessageTypes.TEXT: TextMessage, MessageTypes.REACTION: ReactMessage,
-    MessageTypes.IMAGE: ImageMessage, MessageTypes.INTERACTIVE: InteractiveListReply
+    MessageTypes.AUDIO: AudioMessage,
+    MessageTypes.ADDRESS: AddressMessage,
+    MessageTypes.CONTACTS: ContactMessage,
+    MessageTypes.DOCUMENT: DocumentMessage,
+    MessageTypes.IMAGE: ImageMessage,
+    MessageTypes.INTERACTIVE: InteractiveListReply,
+    MessageTypes.FLOW: FlowMessage,
+    MessageTypes.LOCATION: LocationMessage,
+    MessageTypes.REACTION: ReactMessage,
+    MessageTypes.STICKER: StickerMessage,
+    MessageTypes.TEXT: TextMessage,
+    MessageTypes.VIDEO: VideoMessage
 }
 
+def map_received_msg_to_obj (messages: list[dict[str, Any]] | None):
+    if messages is None:
+        return []
+
+    try:
+        converted_messages = []
+
+        for message in messages:
+            msg_type = message["type"]
+            msg_object = RECEIVED_MSG_TYPE_TO_OBJECT.get(msg_type)
+
+            if msg_object is None:
+                raise Exception(f"Message type '{msg_type}' not supported.")
+
+            converted_messages.append(msg_object.from_dict(message))
+
+        return converted_messages
+
+    except Exception as exc:
+        logging.error("Error while converting messages to objects.", exc_info=exc)
+        return []
+
+@dataclass_json
+@dc.dataclass
+class Incoming:
+    messaging_product: Literal["whatsapp"] = dc.field()
+    "Product used to send the message. (Always whatsap)"
+    metadata: Metadata = dc.field()
+    "Business account webhook metadata"
+    contacts: list[Contacts] = dc.field(default_factory=list)
+    "Information about who sents the message"
+    errors: list[Errors] = dc.field(default_factory=list)
+    "Objects that describes errors"
+    messages: list[ReceivedMessage] = dc.field(
+        metadata=config(decoder=map_received_msg_to_obj), default_factory=list
+    )
+    "Triggered when a customer updates their profile information or sends a message"
+    statuses: list[Statuses] = dc.field(default_factory=list)
+    "Triggered when a message is sent or delivered to a customer or he reads the message"
+
+    _message_idx: int = dc.field(default=0)
+    "Message index that will be handled now"
+
+    _status_idx: int = dc.field(default=0)
+    "Status index that will be handled now"
+
+    @property
+    def message (self) -> ReceivedMessage:
+        "Message that will be handled now (Selected by _message_idx)"
+        return self.messages[self._message_idx] if self.messages else None
+
+    @message.setter
+    def message (self, value: ReceivedMessage):
+        raise ValueError("Can't set message directly. Use '_message_idx' instead.")
+    
+    @property
+    def status (self) -> Statuses:
+        "Status that will be handled now (Selected by _status_idx)"
+        return self.statuses[self._status_idx] if self.statuses else None
+
+    @status.setter
+    def status (self, value: Statuses):
+        raise ValueError("Can't set message directly. Use '_status_idx' instead.")
+
+    def to_send (self):
+        output = {
+            "messaging_product": self.messaging_product, "metadata": self.metadata.to_json()
+        }
+
+        for attr_key in ( "contacts", "errors", "statuses" ):
+            attr_value: list[Contacts | Errors | Statuses] = getattr(self, attr_key, None)
+
+            if attr_value is None:
+                continue
+
+            output[attr_key] = [ attr.to_json() for attr in attr_value ]
+
+        return output
+
+@dataclass_json
+@dc.dataclass
+class WhatsappChanges:
+    id: str
+    "Whatsapp business ID"
+    changes: list[Incoming]
+    "Changed objects array"

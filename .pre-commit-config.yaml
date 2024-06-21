@@ -1,8 +1,0 @@
-repos:
-  - repo: local
-    hooks:
-      - id: build-pyproject
-        name: Build pyproject.toml
-        entry: python -c "import subprocess; subprocess.run(['python', '-m', 'build', '--sdist', '--wheel', '--outdir', '/tmp/test_build'], check=True)"
-        language: python
-        files: ^pyproject\.toml$

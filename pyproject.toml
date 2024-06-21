@@ -18,6 +18,9 @@ repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-bot"
 flask = "^2.0.0"
 dataclasses_json = "0.6.6"
 
+[tool.setuptools]
+packages = ["whatsapp"]
+
 [test-dependencies]
 pytest = "^1.0.0"
 pre-commit = "3.7.1"

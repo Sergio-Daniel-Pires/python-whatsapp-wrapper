@@ -25,7 +25,7 @@ async def echo (bot: WhatsappBot, incoming: Incoming) -> int:
     Returns:
         int: The value representing the next state of the bot.
     """
-    echo_msg = incoming.message.to_reply(incoming.message.from_, incoming.message.message_value)
+    echo_msg = incoming.message.to_send(incoming.message.from_, incoming.message.message_value)
     await bot.send_message(echo_msg, incoming.metadata.phone_number_id)
 
     return START
