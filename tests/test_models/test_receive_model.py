@@ -5,7 +5,7 @@ import pytest
 # from whatsapp.message import AudioMessage, Incoming, TextMessage, ContactMessage, DocumentMessage, ImageMessage, InteractiveListReply, InteractiveButtonsReply, LocationMessage, ReactMessage, TextMessage, VideoMessage
 from whatsapp.message import (AudioMessage, DocumentMessage, ImageMessage,
                               Incoming, LocationMessage, ReactMessage,
-                              TextMessage)
+                              StickerMessage, TextMessage, VideoMessage)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +73,8 @@ class TestReceiveValidMessage:
 
         assert incoming.message is not None, "Message is None"
         assert isinstance(incoming.message, DocumentMessage), "Wrong Message Type"
+
+        assert incoming.message.document.filename == document["filename"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -165,9 +167,30 @@ class TestReceiveValidMessage:
         assert isinstance(incoming.message, ReactMessage), "Wrong Message Type"
 
     @pytest.mark.asyncio
-    @pytest.mark.skip("Not implemented yet")
-    async def test_sticker_message (self, context: None | dict[str, str]):
-        ...
+    @pytest.mark.parametrize(
+        [ "sticker" ],
+        [ ( {
+            "mime_type": "audio/ogg; codecs=opus",
+            "sha256": "0JvAKM3QpqS6B0dJ+JVHkDLMgfXJ1xkdeceKWlHtJjk=",
+            "id": "48310", "animated": True
+        }, ) ]
+    )
+    async def test_sticker_message (
+        self, default_user_incoming: dict[str, Any], default_message: dict[str, str],
+        sticker: dict[str, str], context: None | dict[str, str]
+    ):
+        # Add audio message to the default message
+        default_message["context"] = context
+        default_message.update({ "type": "sticker", "sticker": sticker })
+
+        default_user_incoming["messages"].append(default_message)
+
+        incoming = Incoming.from_dict(default_user_incoming)
+
+        assert incoming.message is not None, "Message is None"
+        assert isinstance(incoming.message, StickerMessage), "Wrong Message Type"
+
+        assert incoming.message.animated == sticker["animated"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -194,16 +217,35 @@ class TestReceiveValidMessage:
         assert incoming.message.message_value == message_text
 
     @pytest.mark.asyncio
-    @pytest.mark.skip("Not implemented yet")
-    async def test_video_message (self, context: None | dict[str, str]):
-        ...
+    @pytest.mark.parametrize(
+        [ "video" ],
+        [ ( {
+            "mime_type": "application/pdf",
+            "sha256": "RbuM08btWYx573le2kdGGg7aAr5lPiqXxST9MdLpTTU",
+            "id": "48773"
+        }, ) ]
+    )
+    async def test_video_message (
+        self, default_user_incoming: dict[str, Any], default_message: dict[str, str],
+        video: dict[str, str], context: None | dict[str, str]
+    ):
+        # Add video message to the default message
+        default_message["context"] = context
+        default_message.update({ "type": "video", "video": video })
+
+        default_user_incoming["messages"].append(default_message)
+
+        incoming = Incoming.from_dict(default_user_incoming)
+
+        assert incoming.message is not None, "Message is None"
+        assert isinstance(incoming.message, VideoMessage), "Wrong Message Type"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         [ "statuses" ],
         [ ( [ {
             "id": "wamid.Hbg2RAA==", "status": "sent", "timestamp": "1631610000",
-            "recipient_id": "51999", 
+            "recipient_id": "51999",
             "conversation": {
                 "id": "wacnvo.1", "expiration_timestamp": "1631610000",
                 "origin": { "type": "service" }
