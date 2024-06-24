@@ -49,17 +49,17 @@ class DocumentMetadata:
     sha256: str = dc.field()
     id: str = dc.field()
     filename: str | None = dc.field(default=None)
+    "Exclusive for document media"
+    voice: bool | None = dc.field(default=None, kw_only=True)
+    "Exclusive for voice/audio media"
+    animated: bool | None = dc.field(default=None, kw_only=True)
+    "Exclusive for sticker media"
 
 @dataclass_json
 @dc.dataclass
 class Reaction:
     message_id: str = dc.field()
     emoji: str = dc.field()
-
-@dataclass_json
-@dc.dataclass
-class AudioMetadata (DocumentMetadata):
-    voice: bool = dc.field(kw_only=True)
 
 @dataclass_json
 @dc.dataclass
@@ -265,7 +265,7 @@ class AddressMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class AudioMessage (ReceivedMessage):
-    audio: AudioMetadata = dc.field(kw_only=True)
+    audio: DocumentMetadata = dc.field(kw_only=True)
     link: str | None = dc.field(default=None, kw_only=True)
     caption: str | None = dc.field(default=None, kw_only=True)
 
@@ -288,11 +288,11 @@ class AudioMessage (ReceivedMessage):
 
     @property
     def audio_id (self) -> str:
-        return self.audio["id"]
+        return self.audio.id
 
     @audio_id.setter
     def audio_id (self, value: str):
-        raise ValueError("Can't set 'audio_id' directly. Use 'audio['id']' instead.")
+        raise ValueError("Can't set 'audio_id' directly. Use 'audio.id' instead.")
 
 @dataclass_json
 @dc.dataclass
@@ -328,6 +328,14 @@ class DocumentMessage (ReceivedMessage):
 
         return output_msg
 
+    @property
+    def filename (self) -> str:
+        return self.document.filename
+
+    @filename.setter
+    def filename (self, value: str):
+        raise ValueError("Can't set 'filename' directly. Use 'document.filename' instead.")
+
 @dataclass_json
 @dc.dataclass
 class ImageMessage (ReceivedMessage):
@@ -357,11 +365,11 @@ class ImageMessage (ReceivedMessage):
 
     @property
     def image_id (self) -> str:
-        return self.image["id"]
+        return self.image.id
 
     @image_id.setter
     def image_id (self, value: str):
-        raise ValueError("Can't set 'image_id' directly. Use 'image['id']' instead.")
+        raise ValueError("Can't set 'image_id' directly. Use 'image.id' instead.")
 
 class ButtonUrlMessage (ReceivedMessage):
     ...
@@ -512,7 +520,33 @@ class ReactMessage (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class StickerMessage (ReceivedMessage):
-    ...
+    sticker: DocumentMetadata = dc.field(kw_only=True)
+
+    @classmethod
+    def to_send (
+        cls, to: str, sticker_id: str = None, link: str = None,
+        caption: str = None
+    ) -> dict[str, str]:
+        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT)
+
+        if sticker_id:
+            output_msg["id"] = sticker_id
+
+        elif link:
+            output_msg["link"] = link
+
+        else:
+            raise ValueError("Either 'sticker_id' or 'link' must be provided.")
+
+        return output_msg
+
+    @property
+    def animated (self) -> bool:
+        return self.sticker.animated
+
+    @animated.setter
+    def animated (self, value: str):
+        raise ValueError("Can't set 'animated' directly. Use 'sticker.id' instead.")
 
 @dataclass_json
 @dc.dataclass
@@ -540,12 +574,7 @@ class VideoMessage (ReceivedMessage):
     """
     Video message. Contains information about sent and received videos.
     """
-    video: dict[str, str] = dc.field(kw_only=True)
-    "Dictionary containing information about the video (id or link)."
-    link: str = dc.field(default=None, kw_only=True)
-    "Video link, if available."
-    caption: str = dc.field(default=None, kw_only=True)
-    "Video caption, if available."
+    video: DocumentMetadata = dc.field(kw_only=True)
 
     @classmethod
     def to_send (
@@ -566,10 +595,10 @@ class VideoMessage (ReceivedMessage):
         output_msg = cls.default_body_to_send(to, MessageTypes.VIDEO)
 
         if video_id:
-            output_msg["video"] = {"id": video_id}
+            output_msg["video"] = { "id": video_id }
 
         if link:
-            output_msg["video"] = {"link": link}
+            output_msg["video"] = { "link": link }
 
         if caption:
             output_msg["video"]["caption"] = caption
@@ -652,7 +681,7 @@ class Incoming:
     @message.setter
     def message (self, value: ReceivedMessage):
         raise ValueError("Can't set message directly. Use '_message_idx' instead.")
-    
+
     @property
     def status (self) -> Statuses:
         "Status that will be handled now (Selected by _status_idx)"
