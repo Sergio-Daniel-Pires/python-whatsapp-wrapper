@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from whatsapp.bot import WhatsappBot, bot_options_parser
-from whatsapp.message import Incoming, MessageTypes
+from whatsapp.messages import Incoming, MessageTypes, ReadMessage, TextMessage
 
 # Enable logging
 logging.basicConfig(
@@ -15,27 +15,34 @@ START = range(1)
 
 async def echo (bot: WhatsappBot, incoming: Incoming) -> int:
     """
-    Echoes the message received from the user.
+    Echo function to send the same message back to the user.
 
-    Args:
-        bot (WhatsappBot): The WhatsappBot instance.
-        update (TextMessage): The message received from the user.
-        incoming (Incoming): The incoming message object.
-
-    Returns:
-        int: The value representing the next state of the bot.
+    :param bot: WhatsappBot instance.
+    :param incoming: Incoming message object.
+    :return: Next bot state
     """
-    echo_msg = incoming.message.to_send(incoming.message.from_, incoming.message.message_value)
-    await bot.send_message(echo_msg, incoming.metadata.phone_number_id)
+    echo_msg = None
+
+    match incoming.message.type:
+        case MessageTypes.TEXT:
+            echo_msg = TextMessage.to_send(incoming.message.from_, incoming.message.message_value)
+
+    try:
+        await bot.send_message(echo_msg, incoming.metadata.phone_number_id)
+
+        read_msg = ReadMessage.to_send(incoming.message.id)
+        await bot.send_message(read_msg, incoming.metadata.phone_number_id)
+
+    except Exception as exc:
+        logger.error(f"Error sending message: {exc}")
 
     return START
 
 async def main (args: list[str] = None):
-    args = bot_options_parser.parse_args(args)
+    user_args = bot_options_parser.parse_args(args)
+    user_args_as_kwargs = dict(user_args._get_kwargs())
 
-    bot = WhatsappBot(
-        verify_token=args.verify_token, whatsapp_token=args.whatsapp_token
-    )
+    bot: WhatsappBot = WhatsappBot.from_dict(user_args_as_kwargs)
 
     bot.add_new_state(START, echo, MessageTypes.TEXT)
 
