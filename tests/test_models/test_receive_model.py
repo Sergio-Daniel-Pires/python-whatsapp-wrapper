@@ -2,8 +2,7 @@ from typing import Any
 
 import pytest
 
-# from whatsapp.message import AudioMessage, Incoming, TextMessage, ContactMessage, DocumentMessage, ImageMessage, InteractiveListReply, InteractiveButtonsReply, LocationMessage, ReactMessage, TextMessage, VideoMessage
-from whatsapp.message import (AudioMessage, DocumentMessage, ImageMessage,
+from whatsapp.messages import (AudioMessage, DocumentMessage, ImageMessage,
                               Incoming, LocationMessage, ReactMessage,
                               StickerMessage, TextMessage, VideoMessage)
 
