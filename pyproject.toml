@@ -5,7 +5,7 @@ authors = [{ name="Sergio Pires", email="sergiodanpires@gmail.com" }]
 description = "Pure python project for META Whatsapp Business API wrapper."
 readme = "README.md"
 license = { file = "LICENSE" }
-keywords = ["python", "whatsapp", "bot"]
+keywords = ["python", "whatsapp", "wrapper"]
 classifiers = [
   "Programming Language :: Python"
 ]
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-bot"
+repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-wrapper"
 
 [tool.setuptools]
 packages = ["whatsapp"]

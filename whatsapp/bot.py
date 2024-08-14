@@ -55,7 +55,7 @@ class WhatsappBot:
     "META API endpoint"
     api_version: str = dc.field(default="v19.0")
     "Meta API version"
-    welcome_message: str = dc.field(default="Hello, I'm using python-whatsapp-bot!")
+    welcome_message: str = dc.field(default="Hello, I'm using python-whatsapp-wrapper!")
     "Welcome message to send when user start a conversation"
     flask_config: object = dc.field(default=None)
     "Flask config from object"

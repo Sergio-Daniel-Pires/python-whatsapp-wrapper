@@ -21,14 +21,14 @@ It's preferable to have an extra SIM card to register your business account (don
 We're on PyPI! So you can easy install using:
 
 ```sh
-pip install python-whatsapp-bot
+pip install python-whatsapp-wrapper
 ```
 
 Or directly by cloning from the GitHub repository:
 
 ```sh
-git clone https://github.com/Sergio-Daniel-Pires/python-whatsapp-bot
-cd python-whatsapp-bot
+git clone https://github.com/Sergio-Daniel-Pires/python-whatsapp-wrapper
+cd python-whatsapp-wrapper
 pip install .
 ```
 

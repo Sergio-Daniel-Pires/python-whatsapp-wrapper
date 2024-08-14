@@ -1,6 +1,6 @@
 from whatsapp import __version__
 
-project = 'python-whatsapp-bot'
+project = 'python-whatsapp-wrapper'
 copyright = '2024, Regios'
 author = 'Regios'
 release = __version__
