@@ -1,13 +1,31 @@
 import dataclasses as dc
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from dataclasses_json import config, dataclass_json
 
 USER_STATE = TypeVar("USER_STATE", str, int)
-CONVERSATION_CATEGORY = Literal["authentication", "marketing", "utility", "service", "referral_conversion"]
+CONVERSATION_CATEGORY = Literal[
+    "authentication",
+    "marketing",
+    "utility",
+    "service",
+    "referral_conversion"
+]
+RECEIVED_MESSAGE_T = TypeVar("RECEIVED_MESSAGE_T")
+
+RECEIVED_MSG_TYPE_TO_OBJECT: dict[str, RECEIVED_MESSAGE_T] = {}
+
+def register_message_type (msg_type: str) -> Callable:
+    def decorator (cls: RECEIVED_MESSAGE_T) -> RECEIVED_MESSAGE_T:
+        RECEIVED_MSG_TYPE_TO_OBJECT[msg_type] = cls
+        return cls
+
+    return decorator
+
 class MessageTypes (str, Enum):
     ADDRESS: str = "address"
     AUDIO: str = "audio"
@@ -25,22 +43,17 @@ class MessageTypes (str, Enum):
 
 @dataclass_json
 @dc.dataclass
-class InteractiveButtonItem:
+class Item:
     id: str = dc.field()
     title: str = dc.field()
-
-@dataclass_json
-@dc.dataclass
-class SectionItem:
-    id: str = dc.field()
-    title: str = dc.field()
-    description: str = dc.field()
+    description: str = dc.field(default="")
+    "Used for section item description (Optional)"
 
 @dataclass_json
 @dc.dataclass
 class Section:
     title: str = dc.field()
-    rows: list[SectionItem] = dc.field(default_factory=list)
+    rows: list[Item] = dc.field(default_factory=list)
 
 @dataclass_json
 @dc.dataclass
@@ -198,6 +211,32 @@ class Statuses:
 
 @dataclass_json
 @dc.dataclass
+class ContactName:
+    first_name: str = dc.field()
+    "Customer first name"
+    formatted_name: str = dc.field()
+    "Customer name"
+
+@dataclass_json
+@dc.dataclass
+class ContactPhone:
+    phone: str = dc.field()
+    "Customer phone number"
+    type: str = dc.field()
+    "Phone number type"
+    wa_id: str = dc.field()
+    "Customer whatsapp ID"
+
+@dataclass_json
+@dc.dataclass
+class ReceivedContacts:
+    name: ContactName = dc.field()
+    "Contact name object"
+    phones: list[ContactPhone] = dc.field()
+    "Contact phone object"
+
+@dataclass_json
+@dc.dataclass
 class ReceivedMessage (ABC):
     id: str = dc.field()
     "Message id (Used for replies for example.)"
@@ -211,23 +250,20 @@ class ReceivedMessage (ABC):
     "Context object, if customer has replied a message"
 
     def __post_init__ (self):
-        if self.type in ( MessageTypes.TEXT, ):
-            if not self.text:
-                raise ValueError("For TEXT type, 'text' must be provided in MessageHeaderValue.")
+        if self.type in ( MessageTypes.TEXT, ) and not self.text:
+            raise ValueError("For TEXT type, 'text' must be provided in MessageHeaderValue.")
 
-        elif self.type in ( MessageTypes.DOCUMENT, ):
-            if not (self.id or self.link):
-                raise ValueError(
-                    "For DOCUMENT type, either 'id' or 'link'"
-                    "must be provided in MessageHeaderValue."
-                )
+        elif self.type in ( MessageTypes.DOCUMENT, ) and not (self.id or self.link):
+            raise ValueError(
+                "For DOCUMENT type, either 'id' or 'link'"
+                "must be provided in MessageHeaderValue."
+            )
 
-        elif self.type in ( MessageTypes.VIDEO, MessageTypes.IMAGE ):
-            if not (self.id or self.link):
-                raise ValueError(
-                    f"For {str(self.type).upper()} type, either 'id' or 'link'"
-                    "must be provided in MessageHeaderValue."
-                )
+        elif self.type in ( MessageTypes.VIDEO, MessageTypes.IMAGE ) and not (self.id or self.link):
+            raise ValueError(
+                f"For {str(self.type).upper()} type, either 'id' or 'link'"
+                "must be provided in MessageHeaderValue."
+            )
 
             # TODO fix filename for images
             # if self.filename:
@@ -256,6 +292,7 @@ class ReceivedMessage (ABC):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.ADDRESS)
 class AddressMessage (ReceivedMessage):
     """
     Handle ask address messages
@@ -264,6 +301,7 @@ class AddressMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.AUDIO)
 class AudioMessage (ReceivedMessage):
     audio: DocumentMetadata = dc.field(kw_only=True)
     link: str | None = dc.field(default=None, kw_only=True)
@@ -296,11 +334,13 @@ class AudioMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.CONTACTS)
 class ContactMessage (ReceivedMessage):
-    ...
+    contacts: list[ReceivedContacts] = dc.field(kw_only=True)
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.DOCUMENT)
 class DocumentMessage (ReceivedMessage):
     document: DocumentMetadata = dc.field(kw_only=True)
 
@@ -338,6 +378,7 @@ class DocumentMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.IMAGE)
 class ImageMessage (ReceivedMessage):
     image: DocumentMetadata = dc.field(kw_only=True)
     link: str | None = dc.field(default=None, kw_only=True)
@@ -405,6 +446,7 @@ class InteractiveListMessage:
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.INTERACTIVE)
 class InteractiveListReply (ReceivedMessage):
     interactive: dict[str, str] = dc.field(kw_only=True)
 
@@ -413,11 +455,11 @@ class InteractiveListReply (ReceivedMessage):
         return f"{self.list_reply.title}\n{self.list_reply.description}"
 
     @property
-    def list_reply(self) -> SectionItem:
-        return SectionItem.from_dict(self.interactive["list_reply"])
+    def list_reply(self) -> Item:
+        return Item.from_dict(self.interactive["list_reply"])
 
     @list_reply.setter
-    def list_reply(self, value: SectionItem):
+    def list_reply(self, value: Item):
         raise ValueError("Can't set list_reply directly. Use 'interactive' instead.")
 
     @classmethod
@@ -434,7 +476,7 @@ class InteractiveButtonsMessage:
     body: str = dc.field(kw_only=True)
     footer: str = dc.field(kw_only=True)
 
-    buttons: list[InteractiveButtonItem] = dc.field(kw_only=True)
+    buttons: list[Item] = dc.field(kw_only=True)
 
     def to_send (self, to: str,) -> dict[str, str]:
         return {
@@ -457,18 +499,18 @@ class InteractiveButtonsMessage:
 class InteractiveButtonsReply (ReceivedMessage):
     interactive: dict[str, str] = dc.field(kw_only=True)
 
-    button_reply: SectionItem = dc.field(init=False)
+    button_reply: Item = dc.field(init=False)
 
     @property
     def message_value (self) -> str:
         return f"{self.button_reply.title}\n{self.button_reply.description}"
 
     @property
-    def button_reply(self) -> SectionItem:
-        return SectionItem.from_dict(self.interactive["button_reply"])
+    def button_reply(self) -> Item:
+        return Item.from_dict(self.interactive["button_reply"])
 
     @button_reply.setter
-    def button_reply(self, value: SectionItem):
+    def button_reply(self, value: Item):
         raise ValueError("Can't set button_reply directly. Use 'interactive' instead.")
 
     @classmethod
@@ -480,6 +522,7 @@ class InteractiveButtonsReply (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.LOCATION)
 class LocationMessage (ReceivedMessage):
     location: Location = dc.field(kw_only=True)
 
@@ -505,6 +548,7 @@ class AskForLocationMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.REACTION)
 class ReactMessage (ReceivedMessage):
     reaction: Reaction = dc.field(kw_only=True)
 
@@ -519,13 +563,13 @@ class ReactMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.STICKER)
 class StickerMessage (ReceivedMessage):
     sticker: DocumentMetadata = dc.field(kw_only=True)
 
     @classmethod
     def to_send (
-        cls, to: str, sticker_id: str = None, link: str = None,
-        caption: str = None
+        cls, to: str, sticker_id: str = None, link: str = None
     ) -> dict[str, str]:
         output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT)
 
@@ -550,6 +594,7 @@ class StickerMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.TEXT)
 class TextMessage (ReceivedMessage):
     text: dict[str, str] = dc.field(kw_only=True)
     "Dict that contains message value"
@@ -570,6 +615,7 @@ class TextMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
+@register_message_type(MessageTypes.VIDEO)
 class VideoMessage (ReceivedMessage):
     """
     Video message. Contains information about sent and received videos.
@@ -607,27 +653,14 @@ class VideoMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
-class ReadMessage (ReceivedMessage):
-    ...
+class ReadMessage:
+    @classmethod
+    def to_send (cls, message_id: str) -> dict[str, Any]:
+        return {
+            "messaging_product": "whatsapp", "status": "read", "message_id": message_id
+        }
 
-MESSAGE_TYPE = TypeVar("MESSAGE_TYPE", TextMessage, ReactMessage)
-
-RECEIVED_MSG_TYPE_TO_OBJECT: dict[str, ReceivedMessage] = {
-    MessageTypes.AUDIO: AudioMessage,
-    MessageTypes.ADDRESS: AddressMessage,
-    MessageTypes.CONTACTS: ContactMessage,
-    MessageTypes.DOCUMENT: DocumentMessage,
-    MessageTypes.IMAGE: ImageMessage,
-    MessageTypes.INTERACTIVE: InteractiveListReply,
-    MessageTypes.FLOW: FlowMessage,
-    MessageTypes.LOCATION: LocationMessage,
-    MessageTypes.REACTION: ReactMessage,
-    MessageTypes.STICKER: StickerMessage,
-    MessageTypes.TEXT: TextMessage,
-    MessageTypes.VIDEO: VideoMessage
-}
-
-def map_received_msg_to_obj (messages: list[dict[str, Any]] | None):
+def map_received_msg_to_obj (messages: list[dict[str, Any]] | None) -> list[RECEIVED_MESSAGE_T]:
     if messages is None:
         return []
 

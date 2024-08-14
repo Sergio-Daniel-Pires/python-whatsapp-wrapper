@@ -12,11 +12,12 @@ from typing import Any, TypeVar
 
 import flask
 import requests
+from dataclasses_json import dataclass_json
 from flask import Flask, Request
 
 from whatsapp.error import (EmptyState, MissingParameters, UnknownEvent,
                             VerificationFailed)
-from whatsapp.message import Incoming, MessageTypes, WhatsappChanges
+from whatsapp.messages import Incoming, MessageTypes, WhatsappChanges
 from whatsapp.utils import middleware
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,9 @@ bot_options_parser.add_argument(
 bot_options_parser.add_argument(
     "--verify-token", type=str, help="The verify token. Used for set new callback URL"
 )
+bot_options_parser.add_argument(
+    "--port", type=int, help="App port"
+)
 # TODO add more options like endpoint, api_version etc
 
 @dc.dataclass
@@ -40,6 +44,7 @@ class State:
     invalid_state: Callable = dc.field(default=None)
     "Triggered when don't trigger any state"
 
+@dataclass_json
 @dc.dataclass
 class WhatsappBot:
     whatsapp_token: str = dc.field()
@@ -50,6 +55,8 @@ class WhatsappBot:
     "META API endpoint"
     api_version: str = dc.field(default="v19.0")
     "Meta API version"
+    welcome_message: str = dc.field(default="Hello, I'm using python-whatsapp-bot!")
+    "Welcome message to send when user start a conversation"
     flask_config: object = dc.field(default=None)
     "Flask config from object"
     flask_app: Flask = dc.field(default=None)
@@ -108,9 +115,10 @@ class WhatsappBot:
         response = requests.post(
             self.external_endpoint(bot_number_id), data=payload, headers=headers
         )
+
         try:
             response.raise_for_status()
-        
+
         except requests.exceptions.HTTPError as exc:
             logger.error(response.text)
             logger.error(f"Error sending message: {exc}")
@@ -134,11 +142,12 @@ class WhatsappBot:
                 raise UnknownEvent("Not a META API event.")
 
             for entry in data["entry"]:
-                incomings = WhatsappChanges(**entry)
-                for incoming in incomings.changes:
-                    self.enqueue_update(incoming)
+                whatsapp_incoming_update = WhatsappChanges(**entry)
 
-            return {"status": "ok"}
+                for change in whatsapp_incoming_update.changes:
+                    self.enqueue_update(Incoming.from_dict(change["value"]))
+
+            return { "status": "ok" }
 
         logging.error(f"This method ({request}) is not allowed here, sorry cowboy.")
 
@@ -300,8 +309,11 @@ class WhatsappBot:
             try:
                 time.sleep(interval)
                 incoming_update = self._server_queue.get()
+
                 if incoming_update is None:
                     continue
+
+                incoming_update = Incoming.from_json(incoming_update)
 
                 await self.process_update(incoming_update)
 
@@ -318,7 +330,7 @@ class WhatsappBot:
         Args:
             update: The update to enqueue.
         """
-        self._server_queue.put(update)
+        self._server_queue.put(update.to_json())
 
     async def process_update (self, incoming: Incoming):
         """
@@ -329,14 +341,6 @@ class WhatsappBot:
         """
         for message_idx in range(len(incoming.messages)):
             incoming._message_idx = message_idx
-
-            # BUG Remove this
-            import os
-            json
-            file_name = str(incoming.message.type) + ".json"
-            if not os.path.exists(file_name):
-                with open(file_name, "w") as f:
-                    json.dump(json.loads(incoming.to_json()), f, indent=4)
 
             user_state_name = self._user_states.get(incoming.message.from_, self._initial_state)
 
