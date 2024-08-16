@@ -11,7 +11,7 @@ A huge thanks to `Pyton-Telegram-Bot`_ team for their impressive work on Telegra
 📱 Whatsapp API Supports
 ------------------------
 
-Tested in version ``v19.0``, but you can try older versions by changing ``api_version`` in :py:class:`whatsapp.bot.WhatsappBot.api_version`.
+Tested in version ``v19.0``, but you can try older versions by changing ``api_version`` in `whatsapp.bot.WhatsappBot.api_version`.
 
 🛠️ Before start
 ---------------
