@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from dataclasses_json import config, dataclass_json
+from error import NotImplementedMsgType
 
 USER_STATE = TypeVar("USER_STATE", str, int)
 CONVERSATION_CATEGORY = Literal[
@@ -20,13 +21,22 @@ RECEIVED_MESSAGE_T = TypeVar("RECEIVED_MESSAGE_T")
 RECEIVED_MSG_TYPE_TO_OBJECT: dict[str, RECEIVED_MESSAGE_T] = {}
 
 def register_message_type (msg_type: str) -> Callable:
-    def decorator (cls: RECEIVED_MESSAGE_T) -> RECEIVED_MESSAGE_T:
+    """
+    Decorator to register a message type to a class
+
+    :param msg_type: Message type to be registered
+    :return: Same object
+    """    
+    def _decorator (cls: RECEIVED_MESSAGE_T) -> RECEIVED_MESSAGE_T:
         RECEIVED_MSG_TYPE_TO_OBJECT[msg_type] = cls
         return cls
 
-    return decorator
+    return _decorator
 
 class MessageTypes (str, Enum):
+    """
+    Whatsapp Business API message types
+    """
     ADDRESS: str = "address"
     AUDIO: str = "audio"
     CONTACTS: str = "contacts"
@@ -59,8 +69,10 @@ class Section:
 @dc.dataclass
 class DocumentMetadata:
     mime_type: str = dc.field()
+    "Document MIME type, used for magic bytes and logo"
     sha256: str = dc.field()
     id: str = dc.field()
+    "File Media ID (Only if using uploaded media, recommended)"
     filename: str | None = dc.field(default=None)
     "Exclusive for document media"
     voice: bool | None = dc.field(default=None, kw_only=True)
@@ -216,6 +228,14 @@ class ContactName:
     "Customer first name"
     formatted_name: str = dc.field()
     "Customer name"
+    last_name: str | None = dc.field(default=None)
+    "Customer last name"
+    middle_name: str | None = dc.field(default=None)
+    "Customer middle name"
+    suffix: str | None = dc.field(default=None)
+    "Customer suffix, e.g Esq."
+    prefix: str | None = dc.field(default=None)
+    "Customer prefix, e.g Dr."
 
 @dataclass_json
 @dc.dataclass
@@ -230,6 +250,7 @@ class ContactPhone:
 @dataclass_json
 @dc.dataclass
 class ReceivedContacts:
+    # TODO: Needs a lot of things more, like org
     name: ContactName = dc.field()
     "Contact name object"
     phones: list[ContactPhone] = dc.field()
@@ -303,9 +324,16 @@ class AddressMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.AUDIO)
 class AudioMessage (ReceivedMessage):
+    """
+    Send and receive audios.
+
+    Supoorted audio formats: aac, amr, mp3, mp4 audio, ogg (opus codecs, not audio/ogg)  
+    Max size: 16 MB
+    """
     audio: DocumentMetadata = dc.field(kw_only=True)
+    "Audio metadata"
     link: str | None = dc.field(default=None, kw_only=True)
-    caption: str | None = dc.field(default=None, kw_only=True)
+    "Audio asset public url (not recommended)"
 
     @classmethod
     def to_send (
@@ -336,12 +364,30 @@ class AudioMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.CONTACTS)
 class ContactMessage (ReceivedMessage):
+    """
+    Message with a list of Whatsapp Contacts, that contains infos like
+    number, name, profile, picture etc. Can be saved or shared by user.
+    """
     contacts: list[ReceivedContacts] = dc.field(kw_only=True)
 
 @dataclass_json
 @dc.dataclass
 @register_message_type(MessageTypes.DOCUMENT)
 class DocumentMessage (ReceivedMessage):
+    """
+    Message that display a icon and can be downloaded by user when tapped
+
+    Max Size: 100 MB  
+    Supported MIMEs (message custom logo):
+    - text/plain
+    - application/vnd.ms-excel
+    - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    - application/msword
+    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    - application/vnd.ms-powerpoint
+    - application/vnd.openxmlformats-officedocument.presentationml.presentation
+    - application/pdf
+    """
     document: DocumentMetadata = dc.field(kw_only=True)
 
     @classmethod
@@ -380,9 +426,15 @@ class DocumentMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.IMAGE)
 class ImageMessage (ReceivedMessage):
+    """
+    Display a single image with an optional caption
+    """
     image: DocumentMetadata = dc.field(kw_only=True)
+    "Image metadata"
     link: str | None = dc.field(default=None, kw_only=True)
+    "Audio asset public url (not recommended)"
     caption: str | None = dc.field(default=None, kw_only=True)
+    "Image caption. Max 1024 characters"
 
     @classmethod
     def to_send (
@@ -550,6 +602,7 @@ class AskForLocationMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.REACTION)
 class ReactMessage (ReceivedMessage):
+    """Emoji reaction message to a specific message"""
     reaction: Reaction = dc.field(kw_only=True)
 
     @classmethod
@@ -565,6 +618,7 @@ class ReactMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.STICKER)
 class StickerMessage (ReceivedMessage):
+    """Sends a sticker message (supports animated stickers)"""
     sticker: DocumentMetadata = dc.field(kw_only=True)
 
     @classmethod
@@ -596,6 +650,12 @@ class StickerMessage (ReceivedMessage):
 @dc.dataclass
 @register_message_type(MessageTypes.TEXT)
 class TextMessage (ReceivedMessage):
+    """
+    Text message. Contains information about sent and received texts.  
+    Shows a website preview if message has a url (startswith http:// or https://)
+    and preview_url is True, the url will be previewed.  
+    Max text size: 4096 characters
+    """
     text: dict[str, str] = dc.field(kw_only=True)
     "Dict that contains message value"
 
@@ -605,6 +665,14 @@ class TextMessage (ReceivedMessage):
 
     @classmethod
     def to_send (cls, to: str, message: str, preview_url: bool = None) -> dict[str, str]:
+        """
+        Send an text message.
+
+        :param to: Whatsapp number to send the message
+        :param message: Text message to send, max 4096 characters
+        :param preview_url: Show website preview if has an url (http/s) and is True, defaults to None
+        :return: Dictionary representing the reply message
+        """        
         output_msg = cls.default_body_to_send(to, MessageTypes.TEXT)
         output_msg["text"] = { "body": message }
 
@@ -618,7 +686,10 @@ class TextMessage (ReceivedMessage):
 @register_message_type(MessageTypes.VIDEO)
 class VideoMessage (ReceivedMessage):
     """
-    Video message. Contains information about sent and received videos.
+    Video message with an optinal caption.
+    
+    Supoorted audio formats: 3gp and mp4  
+    Max size: 16 MB
     """
     video: DocumentMetadata = dc.field(kw_only=True)
 
@@ -661,6 +732,13 @@ class ReadMessage:
         }
 
 def map_received_msg_to_obj (messages: list[dict[str, Any]] | None) -> list[RECEIVED_MESSAGE_T]:
+    """
+    Converts a list of received messages as dictionaries to respective message objects.
+
+    :param messages: List of received messages as dictionaries.
+    :raises NotImplementedMsgType: If message type is not supported.
+    :return: List of converted messages.
+    """    
     if messages is None:
         return []
 
@@ -672,7 +750,7 @@ def map_received_msg_to_obj (messages: list[dict[str, Any]] | None) -> list[RECE
             msg_object = RECEIVED_MSG_TYPE_TO_OBJECT.get(msg_type)
 
             if msg_object is None:
-                raise Exception(f"Message type '{msg_type}' not supported.")
+                raise NotImplementedMsgType(f"Message type '{msg_type}' not supported.")
 
             converted_messages.append(msg_object.from_dict(message))
 
