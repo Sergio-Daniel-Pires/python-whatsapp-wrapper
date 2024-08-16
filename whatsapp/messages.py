@@ -6,7 +6,8 @@ from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from dataclasses_json import config, dataclass_json
-from error import NotImplementedMsgType
+
+from whatsapp.error import NotImplementedMsgType
 
 USER_STATE = TypeVar("USER_STATE", str, int)
 CONVERSATION_CATEGORY = Literal[
