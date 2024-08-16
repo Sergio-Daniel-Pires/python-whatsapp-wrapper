@@ -3,7 +3,7 @@ name = "python-whatsapp-wrapper"
 requires-python = ">=3.10"
 authors = [{ name="Sergio Pires", email="sergiodanpires@gmail.com" }]
 description = "Pure python project for META Whatsapp Business API wrapper."
-readme = "README.md"
+readme = "README.rst"
 license = { file = "LICENSE" }
 keywords = ["python", "whatsapp", "wrapper"]
 classifiers = [
@@ -11,12 +11,12 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-  "flask>=2.0.0",
+  "flask>=3.0.3",
   "dataclasses_json>=0.6.6"
 ]
 
 [project.urls]
-repository = "https://www.github.com/Sergio-Daniel-Pire/python-whatsapp-wrapper"
+repository = "https://www.github.com/Sergio-Daniel-Pires/python-whatsapp-wrapper"
 
 [tool.setuptools]
 packages = ["whatsapp"]
@@ -33,7 +33,8 @@ test = [
 ]
 doc = [
   "sphinx>=8.0.2",
-  "furo>=2024.8.6"
+  "furo>=2024.8.6",
+  "sphinx_copybutton>=0.5.2"
 ]
 
 [tool.sphinx]
