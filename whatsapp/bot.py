@@ -17,7 +17,8 @@ from flask import Flask, Request
 
 from whatsapp.error import (EmptyState, MissingParameters, UnknownEvent,
                             VerificationFailed)
-from whatsapp.messages import Incoming, MessageTypes, WhatsappChanges
+from whatsapp.messages import (USER_STATE, Incoming, MessageTypes,
+                               WhatsappChanges)
 from whatsapp.utils import middleware
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,9 @@ bot_options_parser.add_argument(
 
 @dc.dataclass
 class State:
+    """
+    State class to store handler triggers
+    """
     avaiable_states: list[tuple[Callable, STATE_TRIGGERS]] = dc.field(default_factory=list)
     "List of avaiable states"
     invalid_state: Callable = dc.field(default=None)
@@ -47,6 +51,9 @@ class State:
 @dataclass_json
 @dc.dataclass
 class WhatsappBot:
+    """
+    Whatsapp Bot class
+    """
     whatsapp_token: str = dc.field()
     "Whatsapp API token"
     verify_token: str = dc.field()
@@ -86,7 +93,7 @@ class WhatsappBot:
     @property
     def bearer_token (self) -> str:
         """
-        Returns the bearer token.
+        Returns the bearer token
         """
         return f"Bearer {self.whatsapp_token}"
 
@@ -94,11 +101,8 @@ class WhatsappBot:
         """
         Returns the external endpoint.
 
-        Args:
-            bot_number_id (str): The bot number ID.
-
-        Returns:
-            str: The external endpoint.
+        :param bot_number_id: The bot number ID.
+        :return: The external endpoint.
         """
         return f"{self.endpoint}/{self.api_version}/{bot_number_id}/messages"
 
@@ -106,9 +110,8 @@ class WhatsappBot:
         """
         Sends a message.
 
-        Args:
-            message (dict): The message to send.
-            bot_number_id (str): The bot number ID.
+        :param message: Message (from object) as dict
+        :param bot_number_id: Bot number ID
         """
         headers = { "Authorization": self.bearer_token, "Content-Type": "application/json" }
         payload = json.dumps(message)
@@ -125,13 +128,11 @@ class WhatsappBot:
 
     def handle_message (self, request: Request):
         """
-        Handles incoming messages.
+        Handles incoming messages from META or ignores
 
-        Args:
-            request (Request): The incoming request.
-
-        Returns:
-            str | dict: The response message.
+        :param request: Request object
+        :raises UnknownEvent: When not a META API event
+        :return: A dict with status ='ok' if POST else verify token
         """
         if request.method == "GET":
             return self.webhook_verify_token(request)
@@ -152,20 +153,17 @@ class WhatsappBot:
         logging.error(f"This method ({request}) is not allowed here, sorry cowboy.")
 
     def add_new_state (
-        self, state: str, on_state_func: Callable,
+        self, state: USER_STATE, on_state_func: Callable,
         handler_trigger: str | MessageTypes | STATE_TRIGGERS
     ):
         """
-        Adds a command to the state handler.
+        Adds a new state to the bot.
 
-        Args:
-            state (USER_STATE): The user state.
-            handler (Callable): The command handler.
-            command_or_pattern (str): The command or pattern.
-
-        Raises:
-            UnknownEvent: If the state is not valid.
-        """
+        :param state: state name
+        :param on_state_func: function to handle state
+        :param handler_trigger: triggers for state
+        :raises UnknownEvent: When don't reache any trigger
+        """        
         if state not in self._state_handlers:
             self._state_handlers[state] = State()
 
@@ -201,13 +199,10 @@ class WhatsappBot:
         """
         Adds a command to the invalid state handler. If none wait for a valid state
 
-        Args:
-            state (USER_STATE): The user state.
-            on_invalid_state_func (Callable): The command handler.
-
-        Raises:
-            UnknownEvent: If the state is not valid.
-        """
+        :param state: State name
+        :param on_invalid_state_func: function to handle state 
+        :raises UnknownEvent: If state are not valid
+        """        
         if state not in self._state_handlers:
             raise UnknownEvent(f"{state} is not a valid state")
 
@@ -215,18 +210,13 @@ class WhatsappBot:
 
     def webhook_verify_token (self, request: Request) -> str:
         """
-        Verifies the webhook token.
+        Verifies webhook token
 
-        Args:
-            request (flask.request): The incoming request.
-
-        Returns:
-            str: The verification challenge.
-
-        Raises:
-            MissingParameters: If required parameters are missing.
-            VerificationFailed: If the verification fails.
-        """
+        :param request: Incoming request
+        :raises MissingParameters: If required parameters are missing
+        :raises VerificationFailed: If verify token are different from META API sends
+        :return: String challenge
+        """        
         try:
             mode = request.args["hub.mode"]
             token = request.args["hub.verify_token"]
@@ -245,13 +235,10 @@ class WhatsappBot:
 
     def create_app (self, config: object = None):
         """
-        Creates the Flask application.
+        Creates a Flask app for bot
 
-        Args:
-            config: The Flask configuration.
-
-        Returns:
-            Flask: The Flask application.
+        :param config: Flask config, defaults to None
+        :return: Flask app
         """
         app = Flask(__name__)
         app.config.from_object(config)
@@ -274,12 +261,10 @@ class WhatsappBot:
         """
         Starts the webhook server.
 
-        Args:
-            host (str): The server host.
-            port (int): The server port.
-            debug (bool): Indicates if debug mode is enabled.
-            load_dot_env (bool): Indicates if .env file should be loaded.
-            **server_options: Additional server options.
+        :param host: Server host, defaults to "127.0.0.1"
+        :param port: Server port, defaults to 8000
+        :param debug: Flask hot reload and other features, defaults to False
+        :param load_dot_env: Loads .env file, defaults to False
         """
         self._is_running = True
         server_app = Thread(
@@ -296,10 +281,10 @@ class WhatsappBot:
 
     async def run_forever (self, interval: float = 0.1):
         """
-        Runs the bot forever.
+        Runs bot forever
 
-        Args:
-            interval (float): The interval between updates.
+        :param interval: Interval to verify new incomings, defaults to 0.1
+        :raises EmptyState: If bot are empty of states
         """
         logger.info("Starting updater Event")
         if self._initial_state is None:
@@ -325,19 +310,18 @@ class WhatsappBot:
 
     def enqueue_update (self, update: Incoming):
         """
-        Enqueues an update.
+        Enqueues an update, change this if you want to use a different queue (like redis).
 
-        Args:
-            update: The update to enqueue.
+        :param update: Incoming message
         """
         self._server_queue.put(update.to_json())
 
     async def process_update (self, incoming: Incoming):
         """
-        Processes an update.
+        Handle updates popped from queue.
 
-        Args:
-            update: The update to process.
+        :param incoming: Incoming message
+        :raises UnknownEvent: If state are not in state handlers
         """
         for message_idx in range(len(incoming.messages)):
             incoming._message_idx = message_idx
