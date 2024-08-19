@@ -1,17 +1,33 @@
 🤖 Want a whatsapp bot? You're in the right place.
 ==================================================
 
+.. image:: https://readthedocs.org/projects/python-whatsapp-wrapper/badge/?version=latest
+    :target: https://python-whatsapp-wrapper.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://github.com/Sergio-Daniel-Pires/python-whatsapp-wrapper/actions/workflows/test.yml/badge.svg
+    :target: https://github.com/Sergio-Daniel-Pires/python-whatsapp-wrapper
+    :alt: Github Actions - Tests
+
+.. image:: https://img.shields.io/pypi/dm/python-whatsapp-wrapper
+    :target: https://github.com/Sergio-Daniel-Pires/python-whatsapp-wrapper
+    :alt: PyPI - Downloads
+
+.. image:: https://img.shields.io/pypi/v/python-whatsapp-wrapper
+    :target: https://pypi.org/project/python-telegram-bot/
+    :alt: PyPI - Version
+
 📖 Introduction
 ---------------
 
 A high-level Python wrapper for the WhatsApp API, providing easy abstraction.
 
-A huge thanks to `Pyton-Telegram-Bot`_ team for their impressive work on Telegram bots, which inspired me to create this wrapper.
+A huge thanks to `Python-Telegram-Bot`_ team for their impressive work on Telegram bots, which inspired me to create this wrapper.
 
 📱 Whatsapp API Supports
 ------------------------
 
-Tested in version ``v19.0``, but you can try older versions by changing ``api_version`` in `whatsapp.bot.WhatsappBot.api_version`.
+Tested in version ``v19.0``, but you can try older versions by changing ``api_version`` in ``whatsapp.bot.WhatsappBot.api_version``.
 
 🛠️ Before start
 ---------------
@@ -52,5 +68,5 @@ You might want to try ``echo_bot.py``, a bot that returns any text you send it.
 MIT
 
 .. _Meta API Developer: https://developers.facebook.com/products/whatsapp/
-.. _Pyton-Telegram-Bot: https://github.com/python-telegram-bot/python-telegram-bot
+.. _Python-Telegram-Bot: https://github.com/python-telegram-bot/python-telegram-bot
 .. _Facebook Developers WhatsApp API: https://developers.facebook.com/docs/whatsapp/getting-started
