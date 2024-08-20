@@ -293,7 +293,7 @@ class WhatsappBot:
         while True:
             try:
                 time.sleep(interval)
-                incoming_update = self._server_queue.get()
+                incoming_update = self.get_update()
 
                 if incoming_update is None:
                     continue
@@ -315,6 +315,14 @@ class WhatsappBot:
         :param update: Incoming message
         """
         self._server_queue.put(update.to_json())
+
+    def get_update (self) -> Incoming | None:
+        """
+        Gets an update from the queue (In-memory, mongodb, redis etc).
+
+        :return: Incoming message
+        """
+        return self._server_queue.get()
 
     async def process_update (self, incoming: Incoming):
         """

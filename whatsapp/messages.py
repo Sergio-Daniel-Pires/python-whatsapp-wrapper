@@ -113,7 +113,7 @@ class Context:
 @dc.dataclass
 class Metadata:
     display_phone_number: str = dc.field()
-    "Phone number that cusomer will see in chat"
+    "Phone number that customer will see in chat"
     phone_number_id: str = dc.field()
     "Phone number id. Need to be used to respond an message "
 
