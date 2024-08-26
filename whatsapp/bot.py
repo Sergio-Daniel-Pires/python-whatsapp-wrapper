@@ -163,7 +163,7 @@ class WhatsappBot:
         :param on_state_func: function to handle state
         :param handler_trigger: triggers for state
         :raises UnknownEvent: When don't reache any trigger
-        """        
+        """
         if state not in self._state_handlers:
             self._state_handlers[state] = State()
 
@@ -178,10 +178,6 @@ class WhatsappBot:
             if handler_trigger.startswith("/"):
                 handler_trigger = handler_trigger.lstrip("/")
                 handler_trigger = rf"^/{handler_trigger}"
-
-            # Just compiles the regex pattern
-            else:
-                handler_trigger = re.compile(handler_trigger)
 
         elif (
             isinstance(handler_trigger, tuple)
@@ -200,9 +196,9 @@ class WhatsappBot:
         Adds a command to the invalid state handler. If none wait for a valid state
 
         :param state: State name
-        :param on_invalid_state_func: function to handle state 
+        :param on_invalid_state_func: function to handle state
         :raises UnknownEvent: If state are not valid
-        """        
+        """
         if state not in self._state_handlers:
             raise UnknownEvent(f"{state} is not a valid state")
 
@@ -216,7 +212,7 @@ class WhatsappBot:
         :raises MissingParameters: If required parameters are missing
         :raises VerificationFailed: If verify token are different from META API sends
         :return: String challenge
-        """        
+        """
         try:
             mode = request.args["hub.mode"]
             token = request.args["hub.verify_token"]

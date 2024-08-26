@@ -467,7 +467,7 @@ class ImageMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
-class ButtonUrlMessage (ReceivedMessage):
+class ButtonUrlMessage:
     header: str = dc.field(kw_only=True)
     "Header text"
     body: str = dc.field(kw_only=True)
@@ -485,14 +485,14 @@ class ButtonUrlMessage (ReceivedMessage):
             **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
             "interactive": {
                 "type": "cta_url",
-                "header": { "text": self.header },
+                "header": { "type": "text", "text": self.header },
                 "body": { "text": self.body },
                 "footer": { "text": self.footer },
                 "action": {
                     "name": "cta_url",
                     "parameters": {
-                        "button": self.button_display_text,
-                        "sections": self.url
+                        "display_text": self.button_display_text,
+                        "url": self.button_url
                     }
                 }
             }
