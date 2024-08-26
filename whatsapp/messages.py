@@ -27,7 +27,7 @@ def register_message_type (msg_type: str) -> Callable:
 
     :param msg_type: Message type to be registered
     :return: Same object
-    """    
+    """
     def _decorator (cls: RECEIVED_MESSAGE_T) -> RECEIVED_MESSAGE_T:
         RECEIVED_MSG_TYPE_TO_OBJECT[msg_type] = cls
         return cls
@@ -215,11 +215,11 @@ class Statuses:
     "Customer's WhatsApp ID. Can be used to respond a customer (Doesn't match with phone number)"
     biz_opaque_callback_data: str | None = dc.field(default=None)
     "Arbitrary string"
-    conversation: Conversation = dc.field(default=None)
+    conversation: Conversation | None = dc.field(default=None)
     "Conversation info"
     errors: list[Errors] = dc.field(default_factory=list)
     "List of objects describing errors"
-    pricing: Pricing = dc.field(default=None)
+    pricing: Pricing | None = dc.field(default=None)
     "Pricing information"
 
 @dataclass_json
@@ -328,7 +328,7 @@ class AudioMessage (ReceivedMessage):
     """
     Send and receive audios.
 
-    Supoorted audio formats: aac, amr, mp3, mp4 audio, ogg (opus codecs, not audio/ogg)  
+    Supoorted audio formats: aac, amr, mp3, mp4 audio, ogg (opus codecs, not audio/ogg)
     Max size: 16 MB
     """
     audio: DocumentMetadata = dc.field(kw_only=True)
@@ -378,7 +378,7 @@ class DocumentMessage (ReceivedMessage):
     """
     Message that display a icon and can be downloaded by user when tapped
 
-    Max Size: 100 MB  
+    Max Size: 100 MB
     Supported MIMEs (message custom logo):
     - text/plain
     - application/vnd.ms-excel
@@ -465,8 +465,38 @@ class ImageMessage (ReceivedMessage):
     def image_id (self, value: str):
         raise ValueError("Can't set 'image_id' directly. Use 'image.id' instead.")
 
+@dataclass_json
+@dc.dataclass
 class ButtonUrlMessage (ReceivedMessage):
-    ...
+    header: str = dc.field(kw_only=True)
+    "Header text"
+    body: str = dc.field(kw_only=True)
+    "Body Text"
+    footer: str = dc.field(kw_only=True)
+    "Message footer text"
+
+    button_display_text: str = dc.field(kw_only=True)
+    "Button text"
+    button_url: str = dc.field(kw_only=True)
+    "URL that browser will open when user tap the button"
+
+    def to_send (self, to: str) -> dict[str, str]:
+        return {
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            "interactive": {
+                "type": "cta_url",
+                "header": { "text": self.header },
+                "body": { "text": self.body },
+                "footer": { "text": self.footer },
+                "action": {
+                    "name": "cta_url",
+                    "parameters": {
+                        "button": self.button_display_text,
+                        "sections": self.url
+                    }
+                }
+            }
+        }
 
 class FlowMessage (ReceivedMessage):
     # TODO Implement FlowMessage when I receive API access
@@ -596,8 +626,22 @@ class LocationMessage (ReceivedMessage):
 
 @dataclass_json
 @dc.dataclass
-class AskForLocationMessage (ReceivedMessage):
-    ...
+class AskForLocationMessage:
+    """
+    Max body text size: 4096 characters
+    """
+    body: str = dc.field(kw_only=True)
+    "Text body of location request (Accepts URL link). Max 4096 characters"
+
+    def to_send (self, to: str) -> dict[str, str]:
+        return {
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            "interactive": {
+                "type": "location_request_message",
+                "body": { "text": self.body },
+                "action": { "name": "send_location" }
+            }
+        }
 
 @dataclass_json
 @dc.dataclass
@@ -652,9 +696,9 @@ class StickerMessage (ReceivedMessage):
 @register_message_type(MessageTypes.TEXT)
 class TextMessage (ReceivedMessage):
     """
-    Text message. Contains information about sent and received texts.  
+    Text message. Contains information about sent and received texts.
     Shows a website preview if message has a url (startswith http:// or https://)
-    and preview_url is True, the url will be previewed.  
+    and preview_url is True, the url will be previewed.
     Max text size: 4096 characters
     """
     text: dict[str, str] = dc.field(kw_only=True)
@@ -673,7 +717,7 @@ class TextMessage (ReceivedMessage):
         :param message: Text message to send, max 4096 characters
         :param preview_url: Show website preview if has an url (http/s) and is True, defaults to None
         :return: Dictionary representing the reply message
-        """        
+        """
         output_msg = cls.default_body_to_send(to, MessageTypes.TEXT)
         output_msg["text"] = { "body": message }
 
@@ -688,8 +732,8 @@ class TextMessage (ReceivedMessage):
 class VideoMessage (ReceivedMessage):
     """
     Video message with an optinal caption.
-    
-    Supoorted audio formats: 3gp and mp4  
+
+    Supoorted audio formats: 3gp and mp4
     Max size: 16 MB
     """
     video: DocumentMetadata = dc.field(kw_only=True)
@@ -739,7 +783,7 @@ def map_received_msg_to_obj (messages: list[dict[str, Any]] | None) -> list[RECE
     :param messages: List of received messages as dictionaries.
     :raises NotImplementedMsgType: If message type is not supported.
     :return: List of converted messages.
-    """    
+    """
     if messages is None:
         return []
 

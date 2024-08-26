@@ -6,7 +6,7 @@ from functools import wraps
 from flask import jsonify
 
 from whatsapp.error import MissingParameters, UnknownEvent, VerificationFailed
-
+from whatsapp.messages import Incoming, ReadMessage
 
 def middleware(f: Callable):
     """
@@ -37,3 +37,24 @@ def middleware(f: Callable):
         return result, 200
 
     return _middleware
+
+def read_message(f: Callable):
+    """
+    Decorator read messages when state are reached
+
+    :param f: State handler function
+    :return: Decorated state handler function
+    """
+    @wraps(f)
+    # TODO: Fix circular import for this type hint
+    async def _read_message(bot, incoming: Incoming):
+        try:
+            await bot.send_message(
+                ReadMessage.to_send(incoming.message.id), incoming.metadata.phone_number_id
+            )
+        except:
+            logging.error(traceback.format_exc())
+
+        await f(bot, incoming)
+
+    return _read_message
