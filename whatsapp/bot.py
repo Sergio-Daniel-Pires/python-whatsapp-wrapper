@@ -97,14 +97,14 @@ class WhatsappBot:
         """
         return f"Bearer {self.whatsapp_token}"
 
-    def external_endpoint (self, bot_number_id: str) -> str:
+    def external_endpoint (self, bot_number_id: str, service: str) -> str:
         """
         Returns the external endpoint.
 
         :param bot_number_id: The bot number ID.
         :return: The external endpoint.
         """
-        return f"{self.endpoint}/{self.api_version}/{bot_number_id}/messages"
+        return f"{self.endpoint}/{self.api_version}/{bot_number_id}/{service}"
 
     async def send_message (self, message: dict[str, Any], bot_number_id: str):
         """
@@ -116,7 +116,7 @@ class WhatsappBot:
         headers = { "Authorization": self.bearer_token, "Content-Type": "application/json" }
         payload = json.dumps(message)
         response = requests.post(
-            self.external_endpoint(bot_number_id), data=payload, headers=headers
+            self.external_endpoint(bot_number_id, "messages"), data=payload, headers=headers
         )
 
         try:

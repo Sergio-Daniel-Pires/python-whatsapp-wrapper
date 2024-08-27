@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from dataclasses_json import config, dataclass_json
+import json
 
 from whatsapp.error import NotImplementedMsgType
 
@@ -508,8 +509,8 @@ class InteractiveListMessage:
     header: str = dc.field(kw_only=True)
     body: str = dc.field(kw_only=True)
     footer: str = dc.field(kw_only=True)
-    button_title: str = dc.field(kw_only=True)
 
+    button_title: str = dc.field(kw_only=True)
     sections: list[Section] = dc.field(kw_only=True)
 
     def to_send (self, to: str) -> dict[str, str]:
@@ -539,7 +540,13 @@ class InteractiveListReply (ReceivedMessage):
 
     @property
     def list_reply(self) -> Item:
-        return Item.from_dict(self.interactive["list_reply"])
+        item = self.interactive["list_reply"]
+
+        if isinstance(item, str):
+            item = item.replace("'", "\"")
+            item = json.loads(item)
+
+        return Item.from_dict(item)
 
     @list_reply.setter
     def list_reply(self, value: Item):
