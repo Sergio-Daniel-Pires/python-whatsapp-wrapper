@@ -8,13 +8,16 @@ python-whatsapp-wrapper docs
    :caption: contents
 
    modules
+   callbacks_and_localhost
    examples
+   message_types
 
 .. toctree::
    :maxdepth: 2
    :caption: bot creation
 
    bot_creation
+   bot_profile
    bot_prod_deploy
 
 .. toctree::
