@@ -6,6 +6,14 @@ whatsapp.bot
    :undoc-members:
    :show-inheritance:
 
+whatsapp.config_account
+=======================
+
+.. automodule:: whatsapp.config_account
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 whatsapp.error
 ==============
 
