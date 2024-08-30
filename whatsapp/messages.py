@@ -1,4 +1,5 @@
 import dataclasses as dc
+import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -6,7 +7,6 @@ from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from dataclasses_json import config, dataclass_json
-import json
 
 from whatsapp.error import NotImplementedMsgType
 

@@ -35,6 +35,7 @@ async def echo (bot: WhatsappBot, incoming: Incoming) -> int:
     except Exception as exc:
         logger.error(f"Error sending message: {exc}")
 
+    # Returns to initial state
     return START
 
 async def main (args: list[str] = None):

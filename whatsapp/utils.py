@@ -8,6 +8,7 @@ from flask import jsonify
 from whatsapp.error import MissingParameters, UnknownEvent, VerificationFailed
 from whatsapp.messages import Incoming, ReadMessage
 
+
 def middleware(f: Callable):
     """
     Decorator for normalize responses, handle exceptions.

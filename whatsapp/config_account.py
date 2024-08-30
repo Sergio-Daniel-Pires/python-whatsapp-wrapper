@@ -1,8 +1,11 @@
-from whatsapp.bot import WhatsappBot
 import dataclasses as dc
-import requests
 from typing import Any, Self
+
+import requests
 from dataclasses_json import dataclass_json
+
+from whatsapp.bot import WhatsappBot
+
 
 @dataclass_json
 @dc.dataclass
