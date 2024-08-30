@@ -1,15 +1,12 @@
 Examples
 ========
 
-This is a section dedicated to show examples of how to use the library.
-Examples are good to show how to use the library in a practical way, but no good for
-use as real project, because theres no WSGI, no isolated context,
-error handling, no tests, no documentation, etc.
+This section is dedicated to showcasing examples of how to use the library. Examples are valuable for demonstrating practical usage, but they should not be directly used as the basis for a real project. They typically lack important features such as WSGI support, isolated contexts, error handling, tests, and documentation.
 
 :any:`examples.echo_bot`
 ------------------------
-Like a Hello World for chatbots, this example shows how to create a
-simple bot that echoes the user text input.
+
+Echo bot are like a "Hello World" forz chatbots, this example demonstrates how to create a simple bot that echoes the user's text input.
 
 .. toctree::
    :hidden:
