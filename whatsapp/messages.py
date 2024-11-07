@@ -445,16 +445,16 @@ class ImageMessage (ReceivedMessage):
         output_msg = cls.default_body_to_send(to, MessageTypes.IMAGE)
 
         if image_id:
-            output_msg["id"] = image_id
+            output_msg["image"] = { "id": image_id }
 
         elif link:
-            output_msg["link"] = link
+            output_msg["image"] = { "link": link }
 
         else:
             raise ValueError("Either 'image_id' or 'link' must be provided.")
 
         if caption:
-            output_msg["caption"] = caption
+            output_msg["image"]["caption"] = caption
 
         return output_msg
 
