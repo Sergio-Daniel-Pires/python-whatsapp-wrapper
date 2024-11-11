@@ -61,6 +61,16 @@ class Item:
     description: str = dc.field(default="")
     "Used for section item description (Optional)"
 
+    def to_json (self, has_description: bool = True) -> dict[str, str]:
+        output = {
+            "id": self.id, "title": self.title, "description": self.description
+        }
+
+        if not has_description:
+            output.pop("description")
+
+        return output
+
 @dataclass_json
 @dc.dataclass
 class Section:
