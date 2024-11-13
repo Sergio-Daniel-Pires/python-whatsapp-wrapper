@@ -3,8 +3,8 @@ from typing import Any
 import pytest
 
 from whatsapp.messages import (AudioMessage, DocumentMessage, ImageMessage,
-                              Incoming, LocationMessage, ReactMessage,
-                              StickerMessage, TextMessage, VideoMessage)
+                               Incoming, LocationMessage, ReactMessage,
+                               StickerMessage, TextMessage, VideoMessage)
 
 
 @pytest.mark.parametrize(

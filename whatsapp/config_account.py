@@ -1,7 +1,7 @@
 import dataclasses as dc
 from typing import Any, Self
 
-import requests
+import httpx
 from dataclasses_json import dataclass_json
 
 from whatsapp.bot import WhatsappBot
@@ -25,25 +25,30 @@ class ProfileComponents:
     prompts: list[str] = dc.field(default_factory=list)
 
     @classmethod
-    def get_current_config (cls, bot: WhatsappBot, bot_number_id: str) -> dict[str, Any]:
+    async def get_current_config (
+        cls, bot: WhatsappBot, bot_number_id: str, client: httpx.AsyncClient = None
+    ) -> dict[str, Any]:
         headers = { "Authorization": bot.bearer_token }
         # TODO: Fix this bad replace
         endpoint = bot.external_endpoint(bot_number_id, "fields=conversational_automation")
         endpoint = endpoint.replace("/fields", "?fields")
 
-        return requests.get(endpoint, headers=headers).json()
+        async with (client or httpx.AsyncClient()) as client:
+            return await client.get(endpoint, headers=headers).json()
 
     @classmethod
     def load_profile(cls, bot: WhatsappBot, bot_number_id: str) -> Self:
-        print(cls.get_current_config(bot, bot_number_id))
         return cls.from_dict(cls.get_current_config(bot, bot_number_id))
 
-    def set_current_config (self, bot: WhatsappBot, bot_number_id: str):
+    async def set_current_config (
+        self, bot: WhatsappBot, bot_number_id: str, client: httpx.AsyncClient = None
+    ) -> dict[str, Any]:
         headers = { "Authorization": bot.bearer_token, "Content-Type": "application/json" }
         endpoint = bot.external_endpoint(bot_number_id, "conversational_automation")
         data = self.to_json()
 
-        return requests.post(endpoint, headers=headers, data=data).json()
+        async with (client or httpx.AsyncClient()) as client:
+            return await client.post(endpoint, headers=headers, data=data).json()
 
     def add_command (self, command_name: str, command_description):
         """
