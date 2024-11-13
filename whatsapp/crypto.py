@@ -1,11 +1,14 @@
 import base64
+import hashlib
+import hmac
 import json
 from typing import Any
 
-from cryptography.hazmat.backends import default_backend
+import httpx
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.padding import PKCS7
 
 
 def encrypt_response(response: dict[str, Any], aes_key: bytes, iv: bytes) -> str:
@@ -27,8 +30,7 @@ def encrypt_response(response: dict[str, Any], aes_key: bytes, iv: bytes) -> str
     # Configure AES-GCM cipher with the modified IV
     encryptor = Cipher(
         algorithms.AES(aes_key),
-        modes.GCM(bytes(flipped_iv)),
-        backend=default_backend()
+        modes.GCM(bytes(flipped_iv))
     ).encryptor()
 
     # Encrypt the response data and obtain the authentication tag
@@ -65,9 +67,7 @@ def decrypt_request(
 
     # Load the private RSA key and decrypt the AES key
     private_key = serialization.load_pem_private_key(
-        meta_private_key.encode('utf-8'),
-        password=private_key_password.encode('utf-8'),
-        backend=default_backend()
+        meta_private_key.encode('utf-8'), password=private_key_password.encode('utf-8')
     )
     aes_key = private_key.decrypt(
         encrypted_aes_key,
@@ -84,9 +84,7 @@ def decrypt_request(
 
     # Configure AES-GCM cipher with the IV and authentication tag
     decryptor = Cipher(
-        algorithms.AES(aes_key),
-        modes.GCM(iv, encrypted_flow_data_tag),
-        backend=default_backend()
+        algorithms.AES(aes_key), modes.GCM(iv, encrypted_flow_data_tag)
     ).decryptor()
 
     # Decrypt the flow data and validate the authentication tag
@@ -94,3 +92,67 @@ def decrypt_request(
     decrypted_data = json.loads(decrypted_data_bytes.decode("utf-8"))
 
     return decrypted_data, aes_key, iv
+
+async def decrypt_media_content (
+    encryption_metadata: str, cdn_url: str = None,
+    media_content: str = None, client: httpx.AsyncClient = None
+):
+    """
+    Downloads and decrypts encrypted media content from a given CDN URL.
+
+    This function verifies the SHA256 hash and HMAC of the encrypted content, decrypts the media using AES-CBC with
+    a provided IV, and validates the decrypted content hash against the provided plaintext hash.
+
+    :param encryption_metadata: Dictionary containing encryption details (keys and hashes).
+    :param cdn_url: The URL to download the encrypted media content from. Ignored if media_content is provided.
+    :param media_content: Encrypted media content in bytes. If None, the content is downloaded from cdn_url.
+    :param client: Optional HTTP client for making the download request.
+
+    :return: The decrypted media content as a base64-encoded string.
+
+    :raises ValueError: If hash or HMAC validation fails, or if neither cdn_url nor media_content are provided.
+    """
+    if media_content is None and cdn_url is None:
+        raise ValueError("Either media_content or cdn_url must be provided.")
+
+    # Decode necessary metadata fields
+    encrypted_hash = base64.b64decode(encryption_metadata["encrypted_hash"])
+    hmac_key = base64.b64decode(encryption_metadata["hmac_key"])
+    iv = base64.b64decode(encryption_metadata["iv"])
+    plaintext_hash = base64.b64decode(encryption_metadata["plaintext_hash"])
+    encryption_key = base64.b64decode(encryption_metadata['encryption_key'])
+
+    # Download media content if not provided
+    if media_content is None:
+        async with (client or httpx.AsyncClient()) as http_client:
+            response = await http_client.get(cdn_url)
+            media_content = response.content
+
+    # Verify SHA256 hash of the encrypted media content
+    if hashlib.sha256(media_content).digest() != encrypted_hash:
+        raise ValueError("SHA256 hash verification failed for encrypted content.")
+
+    # Separate ciphertext and HMAC from the media content
+    ciphertext = media_content[:-10]  # Exclude last 10 bytes (HMAC)
+    hmac_provided = media_content[-10:]
+
+    # Validate HMAC of the encrypted media
+    hmac_calculated = hmac.new(hmac_key, iv + ciphertext, hashlib.sha256).digest()[:10]
+    if hmac_calculated != hmac_provided:
+        raise ValueError("HMAC validation failed for encrypted content.")
+
+    # Decrypt the ciphertext using AES-CBC
+    cipher = Cipher(algorithms.AES(encryption_key), modes.CBC(iv) )
+    decryptor = cipher.decryptor()
+    decrypted_padded = decryptor.update(ciphertext) + decryptor.finalize()
+
+    # Remove PKCS7 padding
+    unpadder = PKCS7(algorithms.AES.block_size).unpadder()
+    decrypted_media = unpadder.update(decrypted_padded) + unpadder.finalize()
+
+    # Validate SHA256 hash of the decrypted media content
+    if hashlib.sha256(decrypted_media).digest() != plaintext_hash:
+        raise ValueError("Decrypted media hash validation failed.")
+
+    # Return decrypted media content as a base64-encoded string
+    return base64.b64encode(decrypted_media).decode('utf-8')

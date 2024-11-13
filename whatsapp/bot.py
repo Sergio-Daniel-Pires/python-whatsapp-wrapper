@@ -106,7 +106,9 @@ class WhatsappBot:
         """
         return f"{self.endpoint}/{self.api_version}/{bot_number_id}/{service}"
 
-    async def send_message (self, message: dict[str, Any], bot_number_id: str, client: httpx.AsyncClient = None):
+    async def send_message (
+        self, message: dict[str, Any], bot_number_id: str, client: httpx.AsyncClient = None
+    ):
         """
         Sends a message.
 
@@ -117,7 +119,7 @@ class WhatsappBot:
         payload = json.dumps(message)
 
         async with (client or httpx.AsyncClient()) as client:
-            response = await httpx.post(
+            response = await client.post(
                 self.external_endpoint(bot_number_id, "messages"), data=payload, headers=headers
             )
 
