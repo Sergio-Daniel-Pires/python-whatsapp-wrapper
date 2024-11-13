@@ -11,7 +11,7 @@ from threading import Thread
 from typing import Any, TypeVar
 
 import flask
-import requests
+import httpx
 from dataclasses_json import dataclass_json
 from flask import Flask, Request
 
@@ -106,7 +106,7 @@ class WhatsappBot:
         """
         return f"{self.endpoint}/{self.api_version}/{bot_number_id}/{service}"
 
-    async def send_message (self, message: dict[str, Any], bot_number_id: str):
+    async def send_message (self, message: dict[str, Any], bot_number_id: str, client: httpx.AsyncClient = None):
         """
         Sends a message.
 
@@ -115,14 +115,16 @@ class WhatsappBot:
         """
         headers = { "Authorization": self.bearer_token, "Content-Type": "application/json" }
         payload = json.dumps(message)
-        response = requests.post(
-            self.external_endpoint(bot_number_id, "messages"), data=payload, headers=headers
-        )
+
+        async with (client or httpx.AsyncClient()) as client:
+            response = await httpx.post(
+                self.external_endpoint(bot_number_id, "messages"), data=payload, headers=headers
+            )
 
         try:
             response.raise_for_status()
 
-        except requests.exceptions.HTTPError as exc:
+        except httpx._exceptions.HTTPError as exc:
             logger.error(response.text)
             logger.error(f"Error sending message: {exc}")
 
@@ -283,7 +285,7 @@ class WhatsappBot:
         :raises EmptyState: If bot are empty of states
         """
         logger.info("Starting updater Event")
-        if self._initial_state is None:
+        if self._initial_state is None and not self._can_run_empty:
             raise EmptyState("No states are defined for the bot")
 
         while True:
@@ -348,6 +350,7 @@ class WhatsappBot:
                     )
                     or (
                         isinstance(pattern_to_match, str)
+                        and hasattr(incoming.message, "message_value")
                         and re.match(pattern_to_match, incoming.message.message_value)
                     )
                 ):

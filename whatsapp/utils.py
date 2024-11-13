@@ -53,9 +53,10 @@ def read_message(f: Callable):
             await bot.send_message(
                 ReadMessage.to_send(incoming.message.id), incoming.metadata.phone_number_id
             )
+
         except:
             logging.error(traceback.format_exc())
 
-        await f(bot, incoming)
+        return await f(bot, incoming)
 
     return _read_message
