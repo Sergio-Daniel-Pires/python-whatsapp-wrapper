@@ -5,13 +5,14 @@ import json
 from typing import Any
 
 import httpx
+from Crypto.PublicKey import RSA
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 
 
-def encrypt_response(response: dict[str, Any], aes_key: bytes, iv: bytes) -> str:
+def encrypt_response (response: dict[str, Any], aes_key: bytes, iv: bytes) -> str:
     """
     Encrypt a response dictionary using AES-GCM with a modified initialization vector (IV).
 
@@ -28,21 +29,17 @@ def encrypt_response(response: dict[str, Any], aes_key: bytes, iv: bytes) -> str
     flipped_iv = bytearray(b ^ 0xFF for b in iv)
 
     # Configure AES-GCM cipher with the modified IV
-    encryptor = Cipher(
-        algorithms.AES(aes_key),
-        modes.GCM(bytes(flipped_iv))
-    ).encryptor()
+    encryptor = Cipher(algorithms.AES(aes_key), modes.GCM(bytes(flipped_iv))).encryptor()
 
     # Encrypt the response data and obtain the authentication tag
     ciphertext = encryptor.update(json.dumps(response).encode("utf-8")) + encryptor.finalize()
-    tag = encryptor.tag
 
     # Concatenate ciphertext and tag, then encode in Base64
-    encrypted_response = base64.b64encode(ciphertext + tag).decode("utf-8")
+    encrypted_response = base64.b64encode(ciphertext + encryptor.tag).decode("utf-8")
 
     return encrypted_response
 
-def decrypt_request(
+def decrypt_request (
     encrypted_flow_data_b64: str, encrypted_aes_key_b64: str, initial_vector_b64: str,
     meta_private_key: str, private_key_password: str
 ) -> tuple[Any, bytes, bytes]:
@@ -67,14 +64,12 @@ def decrypt_request(
 
     # Load the private RSA key and decrypt the AES key
     private_key = serialization.load_pem_private_key(
-        meta_private_key.encode('utf-8'), password=private_key_password.encode('utf-8')
+        meta_private_key.encode("utf-8"), password=private_key_password.encode("utf-8")
     )
     aes_key = private_key.decrypt(
         encrypted_aes_key,
         padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+            mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None
         )
     )
 
@@ -120,7 +115,7 @@ async def decrypt_media_content (
     hmac_key = base64.b64decode(encryption_metadata["hmac_key"])
     iv = base64.b64decode(encryption_metadata["iv"])
     plaintext_hash = base64.b64decode(encryption_metadata["plaintext_hash"])
-    encryption_key = base64.b64decode(encryption_metadata['encryption_key'])
+    encryption_key = base64.b64decode(encryption_metadata["encryption_key"])
 
     # Download media content if not provided
     if media_content is None:
@@ -155,4 +150,33 @@ async def decrypt_media_content (
         raise ValueError("Decrypted media hash validation failed.")
 
     # Return decrypted media content as a base64-encoded string
-    return base64.b64encode(decrypted_media).decode('utf-8')
+    return base64.b64encode(decrypted_media).decode("utf-8")
+
+def generate_rsa_private_key (password: str) -> str:
+    """
+    Generates a private RSA key, encrypts it with Triple DES (DES-EDE3-CBC) and a password, 
+    and returns it as a PEM-formatted string.
+
+    :param password: Password to encrypt the private key.
+    :return: Encrypted private key in PEM format as a string.
+    """
+    rsa_key = RSA.generate(2048)
+
+    # Export private key in PEM format encrypted with DES3
+    return rsa_key.export_key(
+        format="PEM", passphrase=password, pkcs=1, protection="DES-EDE3-CBC"
+    ).decode("utf-8")
+
+def extract_public_key_from_private (private_key_pem: str, password: str) -> str:
+    """
+    Extracts the RSA public key from a private key PEM and returns it as a PEM-formatted string.
+
+    :param private_key_pem: PEM-formatted private key as a string.
+    :param password: Password to decrypt the private key.
+    :return: Public key in PEM format as a string.
+    """
+    private_key = RSA.import_key(private_key_pem, passphrase=password)
+
+    public_key = private_key.publickey()
+
+    return public_key.export_key(format="PEM").decode("utf-8")
