@@ -57,17 +57,17 @@ class MessageTypes (str, Enum):
 @dc.dataclass
 class Item:
     id: str = dc.field()
+    "Button unique ID"
     title: str = dc.field()
+    "Button title"
     description: str = dc.field(default="")
     "Used for section item description (Optional)"
 
     def to_json (self, has_description: bool = True) -> dict[str, str]:
-        output = {
-            "id": self.id, "title": self.title, "description": self.description
-        }
+        output = { "id": self.id, "title": self.title, "description": self.description }
 
         if not has_description:
-            output.pop("description")
+            del output["description"]
 
         return output
 
@@ -75,7 +75,9 @@ class Item:
 @dc.dataclass
 class Section:
     title: str = dc.field()
+    "Section title"
     rows: list[Item] = dc.field(default_factory=list)
+    "Section items"
 
 @dataclass_json
 @dc.dataclass
@@ -83,6 +85,7 @@ class DocumentMetadata:
     mime_type: str = dc.field()
     "Document MIME type, used for magic bytes and logo"
     sha256: str = dc.field()
+    "SHA-256 hash"
     id: str = dc.field()
     "File Media ID (Only if using uploaded media, recommended)"
     filename: str | None = dc.field(default=None)
@@ -96,7 +99,9 @@ class DocumentMetadata:
 @dc.dataclass
 class Reaction:
     message_id: str = dc.field()
+    "Message id"
     emoji: str = dc.field()
+    "Escaped unicode emoji (e.g. \uD83D\uDE00) or emoji (e.h. 😀)"
 
 @dataclass_json
 @dc.dataclass
@@ -118,7 +123,11 @@ class Context:
     from_: str = dc.field(metadata=config(field_name="from"))
     "Customer whatsapp number"
     id: str = dc.field()
-    "Message id (Used for replies for example.)"
+    "Message id (Used for replies for example)"
+    forwarded: bool = dc.field(default=None)
+    "True if the received message was been forwarded"
+    frequently_forwarded: bool = dc.field(default=None)
+    "True if the received message was been forwarded more than 5 times"
 
 @dataclass_json
 @dc.dataclass
@@ -517,11 +526,16 @@ class FlowMessage (ReceivedMessage):
 @dc.dataclass
 class InteractiveListMessage:
     header: str = dc.field(kw_only=True)
+    "Header text"
     body: str = dc.field(kw_only=True)
+    "Body Text"
     footer: str = dc.field(kw_only=True)
+    "Message footer text"
 
     button_title: str = dc.field(kw_only=True)
+    "Button title"
     sections: list[Section] = dc.field(kw_only=True)
+    "Min 1 and max 10 sections"
 
     def to_send (self, to: str) -> dict[str, str]:
         return {
@@ -572,9 +586,12 @@ class InteractiveListReply (ReceivedMessage):
 @dataclass_json
 @dc.dataclass
 class InteractiveButtonsMessage:
-    header: str = dc.field(kw_only=True) # TODO add support for emoji, markdown etc
+    header: str = dc.field(kw_only=True)
+    "Header text"
     body: str = dc.field(kw_only=True)
+    "Body Text. Max 1024 characters"
     footer: str = dc.field(kw_only=True)
+    "Message footer text that supports emojis, markdown and links. Max 60 characters"
 
     buttons: list[Item] = dc.field(kw_only=True)
 
