@@ -89,6 +89,10 @@ class WhatsappBot:
 
         if self.verify_token is None:
             logger.warning("Verify token was not setted.")
+        
+        # Validates version matches the format vXX.X
+        if not bool(re.match(r"^v\d{2}\.\d$", self.api_version)):
+            logging.warning("API version must match the format vXX.X")
 
     @property
     def bearer_token (self) -> str:
