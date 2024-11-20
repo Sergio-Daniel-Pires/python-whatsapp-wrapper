@@ -63,7 +63,7 @@ async def upload_media(
     :param bot_number_id: The bot number ID for the WhatsApp Business account.
     :param file_path: Path to the file to be uploaded.
     :param media_type: The MIME type of the file (e.g., "image/jpeg").
-    
+
     Supported file formats, MIME types, and size limitations:
 
     Audio Formats:
@@ -102,11 +102,13 @@ async def upload_media(
     # Calculate file size
     if isinstance(file_data, bytes):
         file_size = len(file_data)
+
     elif hasattr(file_data, 'seek') and hasattr(file_data, 'tell'):
         current_position = file_data.tell()
-        file_data.seek(0, 2)  # Move to the end of the file
+        file_data.seek(0, 2)
         file_size = file_data.tell()
-        file_data.seek(current_position)  # Restore the original position
+        file_data.seek(current_position)
+
     else:
         raise TypeError("file_data must be of type bytes or a file-like object supporting seek and tell.")
 

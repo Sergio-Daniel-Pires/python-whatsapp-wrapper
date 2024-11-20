@@ -56,7 +56,7 @@ class WhatsappBot:
     """
     whatsapp_token: str = dc.field()
     "Whatsapp API token"
-    verify_token: str = dc.field()
+    verify_token: str | None = dc.field(default=None)
     "Verify token for set webhook url"
     endpoint: str = dc.field(default="https://graph.facebook.com")
     "META API endpoint"
@@ -64,9 +64,9 @@ class WhatsappBot:
     "Meta API version"
     welcome_message: str = dc.field(default="Hello, I'm using python-whatsapp-wrapper!")
     "Welcome message to send when user start a conversation"
-    flask_config: object = dc.field(default=None)
+    flask_config: object | None = dc.field(default=None)
     "Flask config from object"
-    flask_app: Flask = dc.field(default=None)
+    flask_app: Flask | None = dc.field(default=None)
     "Flask app (created by create_app method)"
     _is_running: bool = dc.field(default=False)
     "True if bot is running"
@@ -76,7 +76,7 @@ class WhatsappBot:
     "Mapping to store state handlers"
     _user_states: dict[str, str] = dc.field(default_factory=dict)
     "Save user states by id"
-    _initial_state: dict[str, State] = dc.field(default=None)
+    _initial_state: dict[str, State] | None = dc.field(default=None)
     "Initial state for a new user"
     _can_run_empty: bool = dc.field(default=False)
 
