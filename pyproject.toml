@@ -15,7 +15,10 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
   "flask>=3.0.3",
-  "dataclasses_json>=0.6.6"
+  "dataclasses_json>=0.6.6",
+  "cryptography>=43.0.3",
+  "pycryptodome>=3.21.0",
+  "httpx>=0.27.0"
 ]
 
 [project.urls]

@@ -14,10 +14,26 @@ whatsapp.config_account
    :undoc-members:
    :show-inheritance:
 
+whatsapp.crypto
+=======================
+
+.. automodule:: whatsapp.crypto
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 whatsapp.error
 ==============
 
 .. automodule:: whatsapp.error
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+whatsapp.file_handler
+=======================
+
+.. automodule:: whatsapp.file_handler
    :members:
    :undoc-members:
    :show-inheritance:

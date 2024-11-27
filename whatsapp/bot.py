@@ -17,8 +17,8 @@ from flask import Flask, Request
 
 from whatsapp.error import (EmptyState, MissingParameters, UnknownEvent,
                             VerificationFailed)
-from whatsapp.messages import (USER_STATE, Incoming, MessageTypes,
-                               WhatsappChanges)
+from whatsapp.messages import (USER_STATE, FlowIncoming, Incoming,
+                               MessageTypes, WhatsappChanges)
 from whatsapp.utils import middleware
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class WhatsappBot:
     """
     whatsapp_token: str = dc.field()
     "Whatsapp API token"
-    verify_token: str = dc.field()
+    verify_token: str | None = dc.field(default=None)
     "Verify token for set webhook url"
     endpoint: str = dc.field(default="https://graph.facebook.com")
     "META API endpoint"
@@ -64,9 +64,9 @@ class WhatsappBot:
     "Meta API version"
     welcome_message: str = dc.field(default="Hello, I'm using python-whatsapp-wrapper!")
     "Welcome message to send when user start a conversation"
-    flask_config: object = dc.field(default=None)
+    flask_config: object | None = dc.field(default=None)
     "Flask config from object"
-    flask_app: Flask = dc.field(default=None)
+    flask_app: Flask | None = dc.field(default=None)
     "Flask app (created by create_app method)"
     _is_running: bool = dc.field(default=False)
     "True if bot is running"
@@ -76,7 +76,7 @@ class WhatsappBot:
     "Mapping to store state handlers"
     _user_states: dict[str, str] = dc.field(default_factory=dict)
     "Save user states by id"
-    _initial_state: dict[str, State] = dc.field(default=None)
+    _initial_state: dict[str, State] | None = dc.field(default=None)
     "Initial state for a new user"
     _can_run_empty: bool = dc.field(default=False)
 
@@ -89,6 +89,10 @@ class WhatsappBot:
 
         if self.verify_token is None:
             logger.warning("Verify token was not setted.")
+
+        # Validates version matches the format vXX.X
+        if not bool(re.match(r"^v\d{2}\.\d$", self.api_version)):
+            logging.warning("API version must match the format vXX.X")
 
     @property
     def bearer_token (self) -> str:
@@ -106,7 +110,9 @@ class WhatsappBot:
         """
         return f"{self.endpoint}/{self.api_version}/{bot_number_id}/{service}"
 
-    async def send_message (self, message: dict[str, Any], bot_number_id: str, client: httpx.AsyncClient = None):
+    async def send_message (
+        self, message: dict[str, Any], bot_number_id: str, client: httpx.AsyncClient = None
+    ):
         """
         Sends a message.
 
@@ -117,7 +123,7 @@ class WhatsappBot:
         payload = json.dumps(message)
 
         async with (client or httpx.AsyncClient()) as client:
-            response = await httpx.post(
+            response = await client.post(
                 self.external_endpoint(bot_number_id, "messages"), data=payload, headers=headers
             )
 
@@ -148,7 +154,17 @@ class WhatsappBot:
                 whatsapp_incoming_update = WhatsappChanges(**entry)
 
                 for change in whatsapp_incoming_update.changes:
-                    self.enqueue_update(Incoming.from_dict(change["value"]))
+                    changed_field, changed_value = change["field"], change["value"]
+
+                    match changed_field:
+                        case "messages":
+                            self.enqueue_update(Incoming.from_dict(changed_value))
+
+                        case "flows":
+                            self.enqueue_update(FlowIncoming.from_dict(changed_value))
+
+                        case _:
+                            logger.warning(f"Unknown change '{changed_field}': {change}")
 
             return { "status": "ok" }
 

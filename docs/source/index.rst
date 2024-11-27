@@ -10,6 +10,8 @@ python-whatsapp-wrapper docs
    modules
    callbacks_and_localhost
    examples
+   flows
+   file_handling
 
 .. toctree::
    :maxdepth: 2

@@ -50,7 +50,7 @@ class ProfileComponents:
         async with (client or httpx.AsyncClient()) as client:
             return await client.post(endpoint, headers=headers, data=data).json()
 
-    def add_command (self, command_name: str, command_description):
+    def add_command (self, command_name: str, command_description: str):
         """
         Add a command to a given Profile
 

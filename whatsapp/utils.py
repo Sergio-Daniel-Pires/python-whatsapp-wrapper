@@ -2,12 +2,15 @@ import logging
 import traceback
 from collections.abc import Callable, Mapping
 from functools import wraps
+from typing import TYPE_CHECKING
 
 from flask import jsonify
 
 from whatsapp.error import MissingParameters, UnknownEvent, VerificationFailed
 from whatsapp.messages import Incoming, ReadMessage
 
+if TYPE_CHECKING:
+    from whatsapp.bot import WhatsappBot
 
 def middleware(f: Callable):
     """
@@ -47,15 +50,15 @@ def read_message(f: Callable):
     :return: Decorated state handler function
     """
     @wraps(f)
-    # TODO: Fix circular import for this type hint
-    async def _read_message(bot, incoming: Incoming):
+    async def _read_message(bot: WhatsappBot, incoming: Incoming):
         try:
             await bot.send_message(
                 ReadMessage.to_send(incoming.message.id), incoming.metadata.phone_number_id
             )
+
         except:
             logging.error(traceback.format_exc())
 
-        await f(bot, incoming)
+        return await f(bot, incoming)
 
     return _read_message
