@@ -17,8 +17,8 @@ from flask import Flask, Request
 
 from whatsapp.error import (EmptyState, MissingParameters, UnknownEvent,
                             VerificationFailed)
-from whatsapp.messages import (USER_STATE, Incoming, MessageTypes,
-                               WhatsappChanges)
+from whatsapp.messages import (USER_STATE, FlowIncoming, Incoming,
+                               MessageTypes, WhatsappChanges)
 from whatsapp.utils import middleware
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class WhatsappBot:
 
         if self.verify_token is None:
             logger.warning("Verify token was not setted.")
-        
+
         # Validates version matches the format vXX.X
         if not bool(re.match(r"^v\d{2}\.\d$", self.api_version)):
             logging.warning("API version must match the format vXX.X")
@@ -154,7 +154,17 @@ class WhatsappBot:
                 whatsapp_incoming_update = WhatsappChanges(**entry)
 
                 for change in whatsapp_incoming_update.changes:
-                    self.enqueue_update(Incoming.from_dict(change["value"]))
+                    changed_field, changed_value = change["field"], change["value"]
+
+                    match changed_field:
+                        case "messages":
+                            self.enqueue_update(Incoming.from_dict(changed_value))
+
+                        case "flows":
+                            self.enqueue_update(FlowIncoming.from_dict(changed_value))
+
+                        case _:
+                            logger.warning(f"Unknown change '{changed_field}': {change}")
 
             return { "status": "ok" }
 

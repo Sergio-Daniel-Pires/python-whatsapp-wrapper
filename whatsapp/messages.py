@@ -207,7 +207,7 @@ class Pricing:
     "Conversation category"
     pricing_model: Literal["CBP"] = dc.field()
     "Pricing model type"
-    billable: bool = dc.field(default=None)
+    billable: bool | None = dc.field(default=None)
     "False if it's a free message entry point"
 
 @dataclass_json
@@ -896,10 +896,20 @@ class Incoming:
 
         return output
 
+class FlowIncoming:
+    event: str = dc.field()
+    message: str = dc.field()
+    flow_id: str = dc.field()
+    availability: int = dc.field()
+    threshold: int = dc.field()
+    alert_state: Literal["DEACTIVATED", "ACTIVATED"] = dc.field()
+
 @dataclass_json
 @dc.dataclass
 class WhatsappChanges:
-    id: str
+    id: str = dc.field()
     "Whatsapp business ID"
-    changes: list[Incoming]
+    changes: list[Incoming] = dc.field(default_factory=list)
     "Changed objects array"
+    time: int | None = dc.field(default=None)
+    "Unix timestamp (Used in flow changes)"

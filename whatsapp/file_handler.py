@@ -53,7 +53,7 @@ async def get_whatsapp_business_encryption (bot_number_id: str, bot: WhatsappBot
 
     return response.json()
 
-async def upload_media(
+async def upload_media (
     bot: WhatsappBot, bot_number_id: str, file_data: bytes | io.BytesIO, media_type: str
 ) -> dict[str, str]:
     """
