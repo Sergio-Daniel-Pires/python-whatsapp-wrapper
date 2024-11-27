@@ -1,5 +1,5 @@
 whatsapp.bot
-=============
+============
 
 .. automodule:: whatsapp.bot
    :members:
@@ -15,7 +15,7 @@ whatsapp.config_account
    :show-inheritance:
 
 whatsapp.crypto
-=======================
+===============
 
 .. automodule:: whatsapp.crypto
    :members:
@@ -31,7 +31,7 @@ whatsapp.error
    :show-inheritance:
 
 whatsapp.file_handler
-=======================
+=====================
 
 .. automodule:: whatsapp.file_handler
    :members:
