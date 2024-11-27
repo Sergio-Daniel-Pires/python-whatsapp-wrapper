@@ -101,7 +101,7 @@ class Reaction:
     message_id: str = dc.field()
     "Message id"
     emoji: str = dc.field()
-    "Escaped unicode emoji (e.g. \uD83D\uDE00) or emoji (e.h. 😀)"
+    "Escaped unicode emoji or emoji (e.g. 😀)"
 
 @dataclass_json
 @dc.dataclass
