@@ -1,5 +1,4 @@
 import dataclasses as dc
-import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -63,7 +62,7 @@ class Item:
     description: str = dc.field(default="")
     "Used for section item description (Optional)"
 
-    def to_json (self, has_description: bool = True) -> dict[str, str]:
+    def _to_dict (self, has_description: bool = True) -> dict[str, str]:
         output = { "id": self.id, "title": self.title, "description": self.description }
 
         if not has_description:
@@ -124,9 +123,9 @@ class Context:
     "Customer whatsapp number"
     id: str = dc.field()
     "Message id (Used for replies for example)"
-    forwarded: bool = dc.field(default=None)
+    forwarded: bool | None = dc.field(default=None)
     "True if the received message was been forwarded"
-    frequently_forwarded: bool = dc.field(default=None)
+    frequently_forwarded: bool | None = dc.field(default=None)
     "True if the received message was been forwarded more than 5 times"
 
 @dataclass_json
@@ -315,7 +314,7 @@ class ReceivedMessage (ABC):
 
     @classmethod
     def default_body_to_send (
-        cls, to: str, msg_type: MessageTypes, context: Context | dict[str, str] = None,
+        cls, to: str, msg_type: MessageTypes, context: Context | dict[str, str] | None = None,
     ) -> dict[str, Any]:
         default_body = {
             "messaging_product": "whatsapp", "type": msg_type,
@@ -323,13 +322,15 @@ class ReceivedMessage (ABC):
         }
 
         if context is not None:
-            default_body["context"] = context.to_json()
+            default_body["context"] = context.to_dict() if isinstance(context, Context) else context
 
         return default_body
 
     @classmethod
     @abstractmethod
-    def to_send (cls, to: str, *args, **kwargs) -> dict[str, str]:
+    def to_send (
+        cls, to: str, context: Context | dict[str, str] | None = None, *args, **kwargs
+    ) -> dict[str, str]:
         ...
 
 @dataclass_json
@@ -358,9 +359,10 @@ class AudioMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, audio_id: str = None, link: str = None
+        cls, to: str, audio_id: str = None, link: str = None,
+        context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_send(to, MessageTypes.AUDIO)
+        output_msg = cls.default_body_to_send(to, MessageTypes.AUDIO, context)
 
         if audio_id:
             output_msg["id"] = audio_id
@@ -413,10 +415,10 @@ class DocumentMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, document_id: str = None, link: str = None,
-        caption: str = None, filename: str = None
+        cls, to: str, document_id: str = None, link: str = None, caption: str = None,
+        filename: str = None, context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT)
+        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT, context)
 
         if document_id:
             output_msg["id"] = document_id
@@ -459,9 +461,10 @@ class ImageMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, image_id: str = None, link: str = None, caption: str = None
+        cls, to: str, image_id: str = None, link: str = None,
+        caption: str = None, context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_send(to, MessageTypes.IMAGE)
+        output_msg = cls.default_body_to_send(to, MessageTypes.IMAGE, context)
 
         if image_id:
             output_msg["image"] = { "id": image_id }
@@ -500,9 +503,9 @@ class ButtonUrlMessage:
     button_url: str = dc.field(kw_only=True)
     "URL that browser will open when user tap the button"
 
-    def to_send (self, to: str) -> dict[str, str]:
+    def to_send (self, to: str, context: Context | dict[str, str] | None = None) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE, context),
             "interactive": {
                 "type": "cta_url",
                 "header": { "type": "text", "text": self.header },
@@ -537,9 +540,9 @@ class InteractiveListMessage:
     sections: list[Section] = dc.field(kw_only=True)
     "Min 1 and max 10 sections"
 
-    def to_send (self, to: str) -> dict[str, str]:
+    def to_send (self, to: str, context: Context | dict[str, str] | None = None) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE, context),
             "interactive": {
                 "type": "list",
                 "header": { "type": "text", "text": self.header },
@@ -547,7 +550,7 @@ class InteractiveListMessage:
                 "footer": { "text": self.footer },
                 "action": {
                     "button": self.button_title,
-                    "sections": [ section.to_json() for section in self.sections ]
+                    "sections": [ section.to_dict() for section in self.sections ]
                 }
             }
         }
@@ -555,32 +558,35 @@ class InteractiveListMessage:
 @dataclass_json
 @dc.dataclass
 @register_message_type(MessageTypes.INTERACTIVE)
-class InteractiveListReply (ReceivedMessage):
+class InteractiveReply (ReceivedMessage):
     interactive: dict[str, str] = dc.field(kw_only=True)
+
+    user_reply: Item = dc.field(init=False)
 
     @property
     def message_value (self) -> str:
-        return f"{self.list_reply.title}\n{self.list_reply.description}"
+        return self.list_reply.title
 
     @property
-    def list_reply(self) -> Item:
-        item = self.interactive["list_reply"]
+    def user_reply(self) -> Item:
+        item = self.interactive.get(
+            "list_reply", self.interactive.get("button_reply", None)
+        )
 
         if isinstance(item, str):
-            item = item.replace("'", "\"")
-            item = json.loads(item)
+            item = Item.from_json(item.replace("'", "\""))
 
-        return Item.from_dict(item)
+        return item
 
-    @list_reply.setter
-    def list_reply(self, value: Item):
-        raise ValueError("Can't set list_reply directly. Use 'interactive' instead.")
+    @user_reply.setter
+    def user_reply(self, value: Item):
+        raise ValueError("Can't set reply directly. Use 'interactive' instead.")
 
     @classmethod
     def to_send (cls, to: str, *args, **kwargs):
         raise ValueError(
-            "'InteractiveListReply' can't be used to send messages. "
-            "Use 'InteractiveListMessage' instead."
+            "'InteractiveReply' can't be used to send messages. "
+            "Use 'InteractiveListMessage' or 'InteractiveButtonsMessage' instead."
         )
 
 @dataclass_json
@@ -595,9 +601,9 @@ class InteractiveButtonsMessage:
 
     buttons: list[Item] = dc.field(kw_only=True)
 
-    def to_send (self, to: str,) -> dict[str, str]:
+    def to_send (self, to: str, context: Context | dict[str, str] | None = None) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE, context),
             "interactive": {
                 "type": "button",
                 "header": { "type": "text", "text": self.header },
@@ -605,37 +611,12 @@ class InteractiveButtonsMessage:
                 "footer": { "text": self.footer },
                 "action": {
                     "buttons": [
-                        { "type": "reply", "reply": button.to_json() } for button in self.buttons
+                        { "type": "reply", "reply": button._to_dict(False) }
+                        for button in self.buttons
                     ]
                 }
             }
         }
-
-@dataclass_json
-@dc.dataclass
-class InteractiveButtonsReply (ReceivedMessage):
-    interactive: dict[str, str] = dc.field(kw_only=True)
-
-    button_reply: Item = dc.field(init=False)
-
-    @property
-    def message_value (self) -> str:
-        return f"{self.button_reply.title}\n{self.button_reply.description}"
-
-    @property
-    def button_reply(self) -> Item:
-        return Item.from_dict(self.interactive["button_reply"])
-
-    @button_reply.setter
-    def button_reply(self, value: Item):
-        raise ValueError("Can't set button_reply directly. Use 'interactive' instead.")
-
-    @classmethod
-    def to_send (cls, to: str, *args, **kwargs):
-        raise ValueError(
-            "'InteractiveListReply' can't be used to send messages. "
-            "Use 'InteractiveListMessage' instead."
-        )
 
 @dataclass_json
 @dc.dataclass
@@ -645,9 +626,10 @@ class LocationMessage (ReceivedMessage):
 
     @classmethod
     def to_send(
-        cls, to: str, latitude: str, longitude: str, address: str = None, name: str = None
+        cls, to: str, latitude: str, longitude: str, address: str = None,
+        name: str = None, context: Context | dict[str, str] | None = None
     ):
-        output_msg = cls.default_body_to_send(to, MessageTypes.LOCATION)
+        output_msg = cls.default_body_to_send(to, MessageTypes.LOCATION, context)
         output_msg["location"] = { "latitude": latitude, "longitude": longitude }
 
         if address:
@@ -667,9 +649,9 @@ class AskForLocationMessage:
     body: str = dc.field(kw_only=True)
     "Text body of location request (Accepts URL link). Max 4096 characters"
 
-    def to_send (self, to: str) -> dict[str, str]:
+    def to_send (self, to: str, context: Context | dict[str, str] | None = None) -> dict[str, str]:
         return {
-            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE),
+            **ReceivedMessage.default_body_to_send(to, MessageTypes.INTERACTIVE, context),
             "interactive": {
                 "type": "location_request_message",
                 "body": { "text": self.body },
@@ -686,9 +668,9 @@ class ReactMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, message_id: str, emoji: str
+        cls, to: str, message_id: str, emoji: str, context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_send(to, MessageTypes.REACTION)
+        output_msg = cls.default_body_to_send(to, MessageTypes.REACTION, context)
         output_msg["reaction"] = { "message_id": message_id, "emoji": emoji }
 
         return output_msg
@@ -702,9 +684,10 @@ class StickerMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, sticker_id: str = None, link: str = None
+        cls, to: str, sticker_id: str = None, link: str = None,
+        context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
-        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT)
+        output_msg = cls.default_body_to_send(to, MessageTypes.DOCUMENT, context)
 
         if sticker_id:
             output_msg["id"] = sticker_id
@@ -743,7 +726,9 @@ class TextMessage (ReceivedMessage):
         return self.text["body"]
 
     @classmethod
-    def to_send (cls, to: str, message: str, preview_url: bool = None) -> dict[str, str]:
+    def to_send (
+        cls, to: str, message: str, preview_url: bool = None, context: Context | dict[str, str] | None = None
+    ) -> dict[str, str]:
         """
         Send an text message.
 
@@ -752,7 +737,7 @@ class TextMessage (ReceivedMessage):
         :param preview_url: Show website preview if has an url (http/s) and is True, defaults to None
         :return: Dictionary representing the reply message
         """
-        output_msg = cls.default_body_to_send(to, MessageTypes.TEXT)
+        output_msg = cls.default_body_to_send(to, MessageTypes.TEXT, context)
         output_msg["text"] = { "body": message }
 
         if preview_url:
@@ -774,7 +759,8 @@ class VideoMessage (ReceivedMessage):
 
     @classmethod
     def to_send (
-        cls, to: str, video_id: str = None, link: str = None, caption: str = None
+        cls, to: str, video_id: str = None, link: str = None,
+        caption: str = None, context: Context | dict[str, str] | None = None
     ) -> dict[str, str]:
         """
         Creates a video reply message.
@@ -788,7 +774,7 @@ class VideoMessage (ReceivedMessage):
         if video_id is None and link is None:
             raise ValueError("video_id and link can't both be None.")
 
-        output_msg = cls.default_body_to_send(to, MessageTypes.VIDEO)
+        output_msg = cls.default_body_to_send(to, MessageTypes.VIDEO, context)
 
         if video_id:
             output_msg["video"] = { "id": video_id }
@@ -883,7 +869,7 @@ class Incoming:
 
     def to_send (self):
         output = {
-            "messaging_product": self.messaging_product, "metadata": self.metadata.to_json()
+            "messaging_product": self.messaging_product, "metadata": self.metadata.to_dict()
         }
 
         for attr_key in ( "contacts", "errors", "statuses" ):
@@ -892,7 +878,7 @@ class Incoming:
             if attr_value is None:
                 continue
 
-            output[attr_key] = [ attr.to_json() for attr in attr_value ]
+            output[attr_key] = [ attr.to_dict() for attr in attr_value ]
 
         return output
 
