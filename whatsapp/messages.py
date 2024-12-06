@@ -559,9 +559,7 @@ class InteractiveListMessage:
 @dc.dataclass
 @register_message_type(MessageTypes.INTERACTIVE)
 class InteractiveReply (ReceivedMessage):
-    interactive: dict[str, str] = dc.field(kw_only=True)
-
-    user_reply: Item = dc.field(init=False)
+    interactive: dict[str, str] = dc.field(kw_only=True, default=None)
 
     @property
     def message_value (self) -> str:
@@ -569,9 +567,7 @@ class InteractiveReply (ReceivedMessage):
 
     @property
     def user_reply(self) -> Item:
-        item = self.interactive.get(
-            "list_reply", self.interactive.get("button_reply", None)
-        )
+        item = self.interactive.get("list_reply", self.interactive.get("button_reply", None))
 
         if isinstance(item, str):
             item = Item.from_json(item.replace("'", "\""))
