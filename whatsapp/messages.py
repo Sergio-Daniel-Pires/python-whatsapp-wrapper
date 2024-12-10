@@ -393,6 +393,17 @@ class ContactMessage (ReceivedMessage):
     """
     contacts: list[ReceivedContacts] = dc.field(kw_only=True)
 
+    @classmethod
+    def to_send (
+        cls, to: str, contacts: list[ReceivedContacts], context: Context | dict[str, str] | None = None
+    ) -> dict[str, str]:
+        # TODO a lot of things todo, sorry, i'll create this later
+        output_msg = cls.default_body_to_send(to, MessageTypes.CONTACTS, context)
+
+        output_msg["contacts"] = [ contact.to_dict() for contact in contacts ]
+
+        return output_msg
+
 @dataclass_json
 @dc.dataclass
 @register_message_type(MessageTypes.DOCUMENT)
